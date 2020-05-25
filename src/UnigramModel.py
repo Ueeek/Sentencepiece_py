@@ -232,25 +232,27 @@ class UnigramModel:
     def __prune_piece(self):
         current_piece = self.SrcSentencePiece.get_pieces()
 
-        always_keep=[True]*len(current_piece)
-        alternatives=[[] for _ in range(len(current_piece))]
+        #pieceをkeyとしてdictで管理
+        always_keep=dict()
+        alternatives=dict()
 
-        for i,(piece,score) in enumerate(current_piece.items()):
+        for key,score in current_piece.items():
             L = Lattice()
-            L.set_sentence(piece)
-            L.populate_nodes(self.SrcSentencePiece.get_pieces())
-           # print("surface_0=>","".join([L.nodes[v].piece for v in nbests[0]]))
-            if len(nbests)==2:
-                print("surface_1=>","".join([L.nodes[v].piece for v in nbests[1]]))
+            L.set_sentence(key)
+            L.populate_nodes(current_piece)
+            #L.populate_nodes(self.SrcSentencePiece.get_pieces())
+            #print("surface_0=>","".join([L.nodes[v].piece for v in nbests[0]]))
+            nbests = L.NBest(2)
+            print("nbest.size=>",nbests)
 
-            if len(nbests)==1:
-                always_keep[i]=True
-            elif len(nbests[0])>=2:
-                always_keep[i]=False
-            elif len(nbests[0])==1:
-                always_keep[i]=True
-                for node in nbests[1]:
-                    pass
+            #if len(nbests)==1:
+            #    always_keep[i]=True
+            #elif len(nbests[0])>=2:
+            #    always_keep[i]=False
+            #elif len(nbests[0])==1:
+            #    always_keep[i]=True
+            #    for node in nbests[1]:
+            #        pass
 
 
     def build_trie(self):
@@ -273,7 +275,7 @@ class UnigramModel:
 
         #while True:
         for _ in range(5):
-            for itr in range(2):#EM iteration loop
+            for itr in range(1):#EM iteration loop
                 #print("piece=>",self.SrcSentencePiece.get_pieces())
                 expected,objective,num_tokens = self.__run_e_step()
 
@@ -283,8 +285,8 @@ class UnigramModel:
                 self.SrcSentencePiece.set_sentence_piece(new_sentencepieces)
                 print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(itr,self.SrcSentencePiece.get_piece_size(),objective,num_tokens,num_tokens/self.SrcSentencePiece.get_piece_size()))
 
-            exit()
             self.__prune_piece()
+            exit()
 
 
 

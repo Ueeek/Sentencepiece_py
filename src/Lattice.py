@@ -54,7 +54,7 @@ class Lattice:
     def get_eos_nodes(self)->int:
         """ return eos node id
         """
-        return self.end_nodes_[self.size][0]
+        return self.begin_nodes_[self.size][0]
 
     
     def set_sentence(self,s:str):
@@ -227,34 +227,37 @@ class Lattice:
         kPreallocatedHypothesisSize = 512
 
         Agenda=[] #heapq (key is fx)
-        Nodes=dict()
+        Hypos=dict()
 
-        #node is tuple (fx,gx,next_hypothesis,node_id)
+        #node is tuple (fx,gx,next_hypothesis,node_id,hypo_id)
         #fxの大きい順に優先度が高くあって欲しい
         eos_node_id=self.get_eos_nodes()
         eos_score = self.nodes[eos_node_id].score
-        eos_node=(-eos_score,-eos_score,None,eos_node_id)
+        eos_hypo_id=len(Hypos)
+        eos_tup=(-eos_score,-eos_score,None,eos_node_id,eos_hypo_id)
         #eos_node=(eos_score,eos_score,None,eos_node_id)
 
-        Nodes[eos_node_id]=eos_node
+        Hypos[eos_hypo_id]=eos_tup
 
-        heapq.heappush(Agenda,eos_node)
+        heapq.heappush(Agenda,eos_tup)
 
         #Run viterbi to fill bachtrace score of each node
         self.Viterbi()
 
         while Agenda:
-            top_node = heapq.heappop(Agenda)
+            top_tup = heapq.heappop(Agenda)
+            (top_fx,top_gx,top_prev,top_id,top_hypo_id) = top_tup
 
             #Reach to BOS
-            if top_node[3]==self.get_bos_nodes():
+            if top_id==self.get_bos_nodes():
                 print("reach to bos in NBest search")
                 tmp_res=[]
 
-                n_id=top_node[3]
-                while Nodes[n_id][2] is not None:
-                    tmp_res.append(Nodes[n_id][2])
-                    n_id = Nodes[n_id][2]
+                #tupleのindex acssessは見た目的にわかりにくくて好きじゃないので、dictかなんかにしたい。
+                nex=Hypos[top_hypo_id]
+                while nex[2] is not None:
+                    tmp_res.append(nex[2])
+                    nex = Hypos[nex[2]]
                 results.append(tmp_res)
                 if len(results)==nbest_size:
                     break
@@ -262,17 +265,17 @@ class Lattice:
 
             #expands new node ending at node->pos
             #tupleのidがかぶりんちょしそう
-            top_node_id=top_node[3]
-            for lnode in self.end_nodes_[self.nodes[top_node_id].pos]:
-                new_gx= self.nodes[lnode].score + -Nodes[top_node_id][1]
-                new_fx = self.nodes[lnode].backtrace_score + -Nodes[top_node_id][1]
-                new_next = top_node_id
-                new_hypo_node=(-new_fx,-new_gx,new_next,lnode)
+            for lnode in self.end_nodes_[self.nodes[top_id].pos]:
+                new_gx= self.nodes[lnode].score + -Hypos[top_hypo_id][1]
+                new_fx = self.nodes[lnode].backtrace_score + -Hypos[top_hypo_id][1]
+                new_next = top_hypo_id
+                new_hypo_id=len(Hypos)
+                new_hypo_tup=(-new_fx,-new_gx,new_next,lnode,new_hypo_id)
 
-                heapq.heappush(Agenda,new_hypo_node)
-                if lnode in Nodes.keys():
+                heapq.heappush(Agenda,new_hypo_tup)
+                if new_hypo_id in Hypos.keys():
                     print("kesy")
-                Nodes[lnode] = new_hypo_node
+                Hypos[new_hypo_id]=new_hypo_tup
 
             #枝かり
             kMaxAgendaSize = 1e5
@@ -280,6 +283,7 @@ class Lattice:
 
             if len(Agenda)>=kMaxAgendaSize:
                 #new_agendaに必要なだけ移し替える
+                #TODO ここで、hypoの中身も消すべき?
                 print("##Warning##\t Too big agenda. it will be shrinking")
                 remove_size = min(kMinAgendaSize,nbest_size*10)
                 new_Agenda=[]
@@ -287,6 +291,16 @@ class Lattice:
                     t = heapq.heappop(Agenda)
                     heapq.heappush(new_Agenda,t)
                 Agenda = new_Agenda
+
+        print("surface=>", self.surface)
+        for res in results:
+            #resには、hypo_idの列が入ってる。他の何かに変えなければ
+            tmp=[]
+            for h in res[:-1]:
+                node_id = Hypos[h][3]
+                tmp.append(self.nodes[node_id].piece)
+            print(" ".join(map(str,tmp)))
+            assert self.surface=="".join(map(str,tmp)),"surface {} tmp:{}".format(self.surface," ".join(tmp))
         return results
 
 
