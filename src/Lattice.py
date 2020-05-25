@@ -120,11 +120,16 @@ class Lattice:
                     self.insert_node(begin_pos,piece,id,score)
                     common_suffixs.append(piece)
 
-            #UNK の処理。あやし。
-            if len(common_suffixs)==0:
-                print("UNK")
-                #TODO add unk
-                pass
+            #UNK の処理。common_suffixsのなかに1文字のものがないならUNK処理する
+            if all(len(v)>1 for v in common_suffixs):
+            #if len(common_suffixs)==0:
+                #print("UNK",common_suffixs)
+                min_score=min(val for _,val in pieces.items())
+                #TODO scoreは怪しい
+                #print("unk_surface=>",self.surfaces[begin_pos])
+                #print("beg=>",self.surfaces[begin_pos])
+                #多分同じ実装ができていると思う
+                self.insert_node(begin_pos,self.surfaces[begin_pos][0],-1,min_score-10)
             #latticeにセットする
         #print(self.surface)
         #self.debug_begin_nodes()
@@ -165,7 +170,7 @@ class Lattice:
                     continue #id=-1でeosとかbosの時
                 expected[piece]+= freq*exp(forward_accm[node]+self.nodes[node].score+backward_accm[node]-Z)
 
-        return Z,expected
+        return Z*freq,expected
 
     def Viterbi(self):
         """ calculate Viterbi path
@@ -179,13 +184,14 @@ class Lattice:
 
                 for lnode in self.end_nodes_[pos]:
                     score=self.nodes[lnode].backtrace_score+self.nodes[rnode].score
-                    if best_node_id==None or score>best_score:
+                    if best_node_id is None or score>best_score:
                         best_node_id=lnode
                         best_score = score
 
-        #ここでこけるのでdebug
+                #ここでこけるのでdebug
                 if best_node_id is None:
                     print("surface:=>",self.surface)
+                    print("rnode=>",self.nodes[rnode].piece)
                     print("self.surfaces:=>",self.surfaces)
                     self.debug_begin_nodes()
                     self.debug_end_nodes()

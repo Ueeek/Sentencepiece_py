@@ -158,8 +158,6 @@ class UnigramModel:
         num_tokens=0
 
         all_sentence_freq=sum(self.src_words.values())
-        print("all_sentence_freq=>",len(self.src_sentences))
-        print("all_words_freq=>",all_sentence_freq)
 
         #for i in range(len(self.src_sentences)):
         for key,freq in sorted(self.src_words.items()):
@@ -202,9 +200,11 @@ class UnigramModel:
         print("Run M step")
         current_piece = self.SrcSentencePiece.get_pieces()
 
+        #print("current=>",current_piece.items())
+
         assert len(current_piece)==len(expected)
 
-        new_pieces=defaultdict(int)
+        new_pieces=dict()
         sum_freq=0
         #filter infrequent sentencepieces here
         #TODO 1 charが消されることで tokenizeできなくなっている
@@ -215,6 +215,7 @@ class UnigramModel:
 
             if freq<kExpectedFrequencyThreshold:
                 #assert len(key)!=1 ,print("invalid removal 1 char=>{} freq=>{}".format(key,freq))
+                #print("remove {} from voc".format(key))
                 continue
             new_pieces[key]=freq
             sum_freq+=freq
@@ -224,6 +225,7 @@ class UnigramModel:
         for key,val in new_pieces.items():
             new_pieces[key] = Digamma(val)-logsum
 
+        #print("new_pieces=>",new_pieces.items())
         return new_pieces
 
 
@@ -265,12 +267,13 @@ class UnigramModel:
         self.SrcSentencePiece.print_piece()
         print("seed_")
         for key,val in self.SrcSentencePiece.get_pieces().items():
-            print("key=> {} score=> {}".format(key,val))
+            pass
+            #print("key=> {} score=> {}".format(key,val))
 
 
         #while True:
         for _ in range(5):
-            for itr in range(1):#EM iteration loop
+            for itr in range(2):#EM iteration loop
                 #print("piece=>",self.SrcSentencePiece.get_pieces())
                 expected,objective,num_tokens = self.__run_e_step()
 
@@ -279,8 +282,8 @@ class UnigramModel:
                 new_sentencepieces = self.__run_m_step(expected)
                 self.SrcSentencePiece.set_sentence_piece(new_sentencepieces)
                 print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(itr,self.SrcSentencePiece.get_piece_size(),objective,num_tokens,num_tokens/self.SrcSentencePiece.get_piece_size()))
-                exit()
 
+            exit()
             self.__prune_piece()
 
 
@@ -288,5 +291,6 @@ class UnigramModel:
 
 if __name__=="__main__":
     dummy_arg={"src_file":"../test/dummy.en","tgt_file":None}
+    dummy_arg={"src_file":"../test/dummy2.en","tgt_file":None}
     U = UnigramModel(dummy_arg)
     U.train()
