@@ -13,25 +13,18 @@ class UnigramModel:
     def __init__(self, argv):
         """ get parameter from argv
         """
-        self.SrcSentencePiece=SentencePiece()
-        self.TgtSentencePiece=SentencePiece()
-
+        self.SentencePiece=SentencePiece()
         self.Trie=None
 
-        self.src_file=argv["src_file"]
-        self.tgt_file=argv["tgt_file"]
+        self.file=argv["src_file"]
 
+        self.sentences=[]
 
-        self.src_sentences=[]
-        self.tgt_sentences=[]
-
-        self.src_words=[]
-        self.tgt_words=[]
-        
+        self.words=[]
         self.seed_sentence_piece_size=10000
 
 
-    def __make_seed_sentence_piece(self,key="src"):
+    def __make_seed_sentence_piece(self):
         """ set init vocabulary of sentence piece
         """
 
@@ -42,12 +35,8 @@ class UnigramModel:
         #TODO 日本語はSAに対応してないからunicodeでやる必要があるが、とりま英語でやる
         kSentenceBoundary = chr(0x0000);
 
-        if key=="src":
-            sentences=self.src_sentences
-        elif key=="tgt":
-            sentences=self.tgt_sentences
-
-        for s in sentences:
+        print("sentence=>",self.sentences)
+        for s in self.sentences:
             for word in s.split("_"):
                 if len(word)==0:#文の先頭に"_"がついているからsplit[0]は""になる
                     continue
@@ -101,6 +90,7 @@ class UnigramModel:
                 seed_sentencepieces[sb]=val
 
         
+        print("seed=>",seed_sentencepieces.items())
         #freqを確率として扱うためにsum=1にする。その後log probにするをまとめてやってる
         s=log(sum([v for v in seed_sentencepieces.values()]))
         for i,v in seed_sentencepieces.items():
@@ -111,26 +101,18 @@ class UnigramModel:
 
 
 
-    def __set_sentnece_piece(self,pieces,key="src"):
+    def __set_sentnece_piece(self,pieces):
         """ set piece
         """
 
-        assert key in {"src","tgt"}
-        if key=="src":
-            self.SrcSentencePiece.set_sentence_piece(pieces)
-            self.build_trie(pieces)
-        elif key=="tgt":
-            self.TgtSentencePiece.set_sentence_piece(pieces)
+        self.SentencePiece.set_sentence_piece(pieces)
+        self.build_trie(pieces)
 
-    def __load_sentence(self,key="src"):
+    def __load_sentence(self):
         """ load sentence from file
-        replace \s as "_"
         """
-        if key=="src":
-            path=self.src_file
-        elif key=="tgt":
-            path=self.tgt_file
-        print("loading sentences\n {}:{}".format(key,path))
+        path=self.file
+        print("loading sentences\n {}".format(path))
 
         sentences=[]
         words=defaultdict(int)
@@ -142,13 +124,10 @@ class UnigramModel:
 
                 sentences.append(_s)
 
-        if key=="src":
-            self.src_sentences = sentences
-            self.src_words=words
-        elif key=="tgt":
-            self.tgt_sentences = sentences
+        self.sentences = sentences
+        self.words=words
 
-    def __run_e_step(self,key="src"):
+    def __run_e_step(self):
         """E step of EM learnign
         Return:
             objective: int
@@ -156,18 +135,18 @@ class UnigramModel:
             expected: float[len(piece)]
         """
         print("E step")
-        #TODO とりあえず srcのみ
+        #TODO とりあえず のみ
         expected=defaultdict(int)
         objective=0
         num_tokens=0
 
-        all_sentence_freq=sum(self.src_words.values())
+        all_sentence_freq=sum(self.words.values())
 
-        #for i in range(len(self.src_sentences)):
-        for key,freq in sorted(self.src_words.items()):
+        #for i in range(len(self._sentences)):
+        for key,freq in sorted(self.words.items()):
             L = Lattice()
             L.set_sentence(key)
-            L.populate_nodes(self.SrcSentencePiece.get_pieces(),self.Trie)
+            L.populate_nodes(self.SentencePiece.get_pieces(),self.Trie)
             Z,ret_expected = L.populate_marginal(freq)
 
             for key,val in ret_expected.items():
@@ -177,7 +156,7 @@ class UnigramModel:
             num_tokens+=N
             objective -= Z/all_sentence_freq
 
-            #s = self.src_sentences[i]
+            #s = self._sentences[i]
             #freq =1 #sentenceごとに見るから(remove?)
             #for word in s.split("_"):
             #    if len(word)==0: continue
@@ -196,13 +175,13 @@ class UnigramModel:
             #    objective-=Z/all_sentence_freq
         return expected,objective,num_tokens
 
-    def __run_m_step(self,expected,key="src"):
+    def __run_m_step(self,expected):
         """ M step of EM learning
         Return:
             new_sentencepieces: list of sentencepiece
         """
         print("Run M step")
-        current_piece = self.SrcSentencePiece.get_pieces()
+        current_piece = self.SentencePiece.get_pieces()
 
         #print("current=>",current_piece.items())
 
@@ -235,7 +214,7 @@ class UnigramModel:
 
     def __prune_piece(self):
         #TODO 全てが怪しいのでちゃんと書く
-        current_piece = self.SrcSentencePiece.get_pieces()
+        current_piece = self.SentencePiece.get_pieces()
 
         #pieceをkeyとしてdictで管理
         always_keep=dict()
@@ -268,7 +247,7 @@ class UnigramModel:
         freq=defaultdict(int) 
         inverted=defaultdict(int)
 
-        for s,score in self.src_words.items():
+        for s,score in self.words.items():
             vsum+=score
             L.set_sentence(s)
             L.populate_nodes(current_piece,self.Trie)
@@ -321,7 +300,7 @@ class UnigramModel:
         """最終的な処理
         fileへの書き込み?
         """
-        print("finally, {} pieces".format(self.SrcSentencePiece.get_piece_size()))
+        print("finally, {} pieces".format(self.SentencePiece.get_piece_size()))
         pass
 
     def build_trie(self,pieces):
@@ -332,21 +311,21 @@ class UnigramModel:
         
 
     def train(self):
-        #src
-        self.__load_sentence(key="src")
-        seed_sentencepieces = self.__make_seed_sentence_piece(key="src")
-        self.__set_sentnece_piece(seed_sentencepieces,key="src")
+        #
+        self.__load_sentence()
+        seed_sentencepieces = self.__make_seed_sentence_piece()
+        self.__set_sentnece_piece(seed_sentencepieces)
 
 
-        self.SrcSentencePiece.print_piece()
+        self.SentencePiece.print_piece()
         #print("seed_")
         #for key,val in self.SrcSentencePiece.get_pieces().items():
             #print("key=> {} score=> {}".format(key,val))
 
 
         #while True:
-        for _ in range(5):
-            for itr in range(1):#EM iteration loop
+        for _ in range(1):
+            for itr in range(2):#EM iteration loop
                 #print("piece=>",self.SrcSentencePiece.get_pieces())
                 expected,objective,num_tokens = self.__run_e_step()
 
@@ -354,7 +333,7 @@ class UnigramModel:
                 #    print("key=> {} score=> {} exp=>{}".format(key,val,expected[key]))
                 new_sentencepieces = self.__run_m_step(expected)
                 self.__set_sentnece_piece(new_sentencepieces)
-                print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(itr,self.SrcSentencePiece.get_piece_size(),objective,num_tokens,num_tokens/self.SrcSentencePiece.get_piece_size()))
+                print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(itr,self.SentencePiece.get_piece_size(),objective,num_tokens,num_tokens/self.SentencePiece.get_piece_size()))
 
             new_sentencepieces=self.__prune_piece()
             #print("prooned=>",new_sentencepieces)
@@ -365,8 +344,9 @@ class UnigramModel:
 
 
 if __name__=="__main__":
-    #dummy_arg={"src_file":"../test/dummy.en","tgt_file":None}
-    dummy_arg={"src_file":"../test/dummy2.en","tgt_file":None}
-    #dummy_arg={"src_file":"../test/dummy3.en","tgt_file":None}
+    dummy_arg={"src_file":"../test/dummy.en"}
+    dummy_arg={"src_file":"../test/dummy2.en"}
+    #dummy_arg={"_file":"../test/dummy3.en","tgt_file":None}
+    dummy_arg={"src_file":"../test/dummy.jap"}
     U = UnigramModel(dummy_arg)
     U.train()
