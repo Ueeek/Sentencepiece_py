@@ -2,6 +2,7 @@ from collections import defaultdict
 import heapq
 from util import LogSumExp
 from math import exp
+import pygtrie
 class Node:
     def __init__(self):
         self.piece = None
@@ -104,26 +105,21 @@ class Lattice:
         self.end_nodes_[pos+node.length].append(node.node_id)
         return node
 
-    def populate_nodes(self,pieces):
+    def populate_nodes(self,pieces,Trie):
         """latticeにする
         """
 
         for begin_pos in range(self.size):
             #surfaces[i]と共通の接頭辞を持つpieceを見つける
-            #TODO あとでtrieで高速化する
-            #print("surface=>",self.surfaces[begin_pos])
-            common_suffixs=[]
-            for id,(piece,score) in enumerate(pieces.items()):
-                if len(piece)>len(self.surfaces[begin_pos]):continue
-                if all(p==s for p,s in zip(piece,self.surfaces[begin_pos])):
-                    #print("common_suffixs=>{} score=>{}".format(piece,score))
-                    self.insert_node(begin_pos,piece,id,score)
-                    common_suffixs.append(piece)
 
-            #UNK の処理。common_suffixsのなかに1文字のものがないならUNK処理する
-            if all(len(v)>1 for v in common_suffixs):
-            #if len(common_suffixs)==0:
-                #print("UNK",common_suffixs)
+            #TODO Vocab_idを使いたくない
+            common_prefixes_trie = [v[1] for v in Trie.prefixes(self.surfaces[begin_pos])]
+            for (id,key,score) in common_prefixes_trie:
+                self.insert_node(begin_pos,key,id,score)
+            #UNK の処理。common_prefixesのなかに1文字のものがないならUNK処理する
+            if all(len(v[1])>1 for v in common_prefixes_trie):
+            #if len(common_prefixes)==0:
+                #print("UNK",common_prefixes)
                 min_score=min(val for _,val in pieces.items())
                 #TODO scoreは怪しい
                 #print("unk_surface=>",self.surfaces[begin_pos])

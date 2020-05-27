@@ -3,8 +3,9 @@ from pysuffixarray.core import SuffixArray
 from SentencePiece import SentencePiece
 from math import log
 from Lattice import Lattice
-import pygtrie as trie
+import pygtrie
 from util import *
+
 
 class UnigramModel:
     """どこまで仕事をするのか
@@ -14,6 +15,8 @@ class UnigramModel:
         """
         self.SrcSentencePiece=SentencePiece()
         self.TgtSentencePiece=SentencePiece()
+
+        self.Trie=None
 
         self.src_file=argv["src_file"]
         self.tgt_file=argv["tgt_file"]
@@ -114,6 +117,7 @@ class UnigramModel:
 
         assert key in {"src","tgt"}
         if key=="src":
+            self.build_trie(pieces)
             self.SrcSentencePiece.set_sentence_piece(pieces)
         elif key=="tgt":
             self.TgtSentencePiece.set_sentence_piece(pieces)
@@ -163,7 +167,7 @@ class UnigramModel:
         for key,freq in sorted(self.src_words.items()):
             L = Lattice()
             L.set_sentence(key)
-            L.populate_nodes(self.SrcSentencePiece.get_pieces())
+            L.populate_nodes(self.SrcSentencePiece.get_pieces(),self.Trie)
             Z,ret_expected = L.populate_marginal(freq)
 
             for key,val in ret_expected.items():
@@ -241,7 +245,7 @@ class UnigramModel:
         for key,score in current_piece.items():
             L = Lattice()
             L.set_sentence(key)
-            L.populate_nodes(current_piece)
+            L.populate_nodes(current_piece,self.Trie)
             nbests = L.NBest(2)
 
             for b in nbests:
@@ -267,7 +271,7 @@ class UnigramModel:
         for s,score in self.src_words.items():
             vsum+=score
             L.set_sentence(s)
-            L.populate_nodes(current_piece)
+            L.populate_nodes(current_piece,self.Trie)
 
             for node_id in L.Viterbi():
                 word = L.nodes[node_id].piece
@@ -320,8 +324,11 @@ class UnigramModel:
         print("finally, {} pieces".format(self.SrcSentencePiece.get_piece_size()))
         pass
 
-    def build_trie(self):
-        pass
+    def build_trie(self,pieces):
+        Trie = pygtrie.Trie()
+        for i,(key,score) in enumerate(pieces.items()):
+            Trie[key]=(i,key,score)
+        self.Trie=Trie
         
 
     def train(self):
@@ -332,9 +339,8 @@ class UnigramModel:
 
 
         self.SrcSentencePiece.print_piece()
-        print("seed_")
-        for key,val in self.SrcSentencePiece.get_pieces().items():
-            pass
+        #print("seed_")
+        #for key,val in self.SrcSentencePiece.get_pieces().items():
             #print("key=> {} score=> {}".format(key,val))
 
 
@@ -359,7 +365,7 @@ class UnigramModel:
 
 
 if __name__=="__main__":
-    dummy_arg={"src_file":"../test/dummy.en","tgt_file":None}
+    #dummy_arg={"src_file":"../test/dummy.en","tgt_file":None}
     dummy_arg={"src_file":"../test/dummy2.en","tgt_file":None}
     #dummy_arg={"src_file":"../test/dummy3.en","tgt_file":None}
     U = UnigramModel(dummy_arg)
