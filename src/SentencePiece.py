@@ -1,5 +1,5 @@
 class SentencePiece:
-    """ pieceをなんやかんやする
+    """ manage sentencepieces vocab
     """
 
     def __init_s(self):
