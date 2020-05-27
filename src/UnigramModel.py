@@ -35,7 +35,6 @@ class UnigramModel:
         #TODO 日本語はSAに対応してないからunicodeでやる必要があるが、とりま英語でやる
         kSentenceBoundary = chr(0x0000);
 
-        print("sentence=>",self.sentences)
         for s in self.sentences:
             #ここでpretolenizeってのをかましている
             for word in s.split("_"):
@@ -49,6 +48,10 @@ class UnigramModel:
                     if c!=kSentenceBoundary:
                         all_chars[c]+=1
                 array.append(kSentenceBoundary)
+
+        print("alphabet=>",len(all_chars))
+        print(" ".join(list(sorted(all_chars.keys()))))
+        all_chars = {key:val for  key,val in all_chars.items() if val>1}
                 
 #make a suffix_array to extract all sub strings occuring more than 2 times in the sentence
         print("Making Suffix Array")
@@ -78,7 +81,7 @@ class UnigramModel:
         #print("all char:{}, substr:{}".format(len(all_chars),len(substr)))
         #print("all_chars=>"," ".join(list(sorted(all_chars.keys(),))))
         #print("freq_sbstr:=>"," ".join(sorted([v[0] for v in substr])))
-        subtr = sorted(substr,key=lambda x:-x[1])
+        substr = sorted(list(substr),key=lambda x:-x[1])
         seed_sentencepieces=all_chars
         if len(seed_sentencepieces)>self.seed_sentence_piece_size:
             pass
@@ -92,7 +95,7 @@ class UnigramModel:
                 seed_sentencepieces[sb]=val
 
         
-        print("seed=>",seed_sentencepieces.items())
+        #print("seed=>",seed_sentencepieces.items())
         #freqを確率として扱うためにsum=1にする。その後log probにするをまとめてやってる
         s=log(sum([v for v in seed_sentencepieces.values()]))
         for i,v in seed_sentencepieces.items():
@@ -120,6 +123,7 @@ class UnigramModel:
         words=defaultdict(int)
         with open(path) as f:
             for s in f:
+                #_s = "_"+"_".join(s.split(" "))#全角と半角のspaceを区別するか(\tとか\nもsplitされるs.split())
                 _s = "_"+"_".join(s.split())
                 for w in s.split():
                     words["_"+w]+=1
@@ -187,7 +191,7 @@ class UnigramModel:
 
         #print("current=>",current_piece.items())
 
-        assert len(current_piece)==len(expected)
+        assert len(current_piece)>=len(expected)
 
         new_pieces=dict()
         sum_freq=0
@@ -326,7 +330,7 @@ class UnigramModel:
 
 
         #while True:
-        for _ in range(1):
+        for _ in range(3):
             for itr in range(2):#EM iteration loop
                 #print("piece=>",self.SrcSentencePiece.get_pieces())
                 expected,objective,num_tokens = self.__run_e_step()
@@ -347,8 +351,9 @@ class UnigramModel:
 
 if __name__=="__main__":
     dummy_arg={"src_file":"../test/dummy.en"}
-    dummy_arg={"src_file":"../test/dummy2.en"}
-    #dummy_arg={"_file":"../test/dummy3.en","tgt_file":None}
-    dummy_arg={"src_file":"../test/dummy.jap"}
+    #dummy_arg={"src_file":"../test/dummy2.en"}
+    dummy_arg={"src_file":"../test/dummy3.en","tgt_file":None}
+    #dummy_arg={"src_file":"../test/dummy.jap"}
+    #dummy_arg={"src_file":"../test/dummy4.en"}
     U = UnigramModel(dummy_arg)
     U.train()

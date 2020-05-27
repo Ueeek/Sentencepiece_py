@@ -4,6 +4,8 @@ class SuffixArray:
 
     def __init__(self, string):
         self.string = string+"$"
+        self.sa = construct_suffix_array(self.string)
+        #print("SA=>",self.sa)
         self.sa = self._construct_suffix_array(self.string)
 
     def suffix_array(self):
