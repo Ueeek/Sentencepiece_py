@@ -167,6 +167,7 @@ class UnigramModel:
         for key,freq in sorted(self.src_words.items()):
             L = Lattice()
             L.set_sentence(key)
+            self.build_trie(self.SrcSentencePiece.get_pieces())
             L.populate_nodes(self.SrcSentencePiece.get_pieces(),self.Trie)
             Z,ret_expected = L.populate_marginal(freq)
 
@@ -245,6 +246,7 @@ class UnigramModel:
         for key,score in current_piece.items():
             L = Lattice()
             L.set_sentence(key)
+            self.build_trie(self.SrcSentencePiece.get_pieces())
             L.populate_nodes(current_piece,self.Trie)
             nbests = L.NBest(2)
 
@@ -271,6 +273,7 @@ class UnigramModel:
         for s,score in self.src_words.items():
             vsum+=score
             L.set_sentence(s)
+            self.build_trie(self.SrcSentencePiece.get_pieces())
             L.populate_nodes(current_piece,self.Trie)
 
             for node_id in L.Viterbi():
