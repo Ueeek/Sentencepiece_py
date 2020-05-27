@@ -193,7 +193,12 @@ class UnigramModel:
         return new_pieces
 
 
-    def prune_piece(self):
+    def prune_step_1_always_keep_alternative(self):
+        """
+        Return
+            always_keep(dict)
+            alternatives(dict)
+        """
         current_piece = self.SentencePiece.get_pieces()
 
         #pieceをkeyとしてdictで管理
@@ -217,14 +222,25 @@ class UnigramModel:
                 always_keep[key]=True
                 alternatives[key]=nbests[1]
 
-        #Second, segments all sentences to compute likelihoood with a Unigram LM
-        #inverted[key] stires the set of sentence index where the sentencepiece (key) appears
+        return always_keep,alternatives
+
+
+    def prune_step_2_freq_inverted(self):
+        """
+        Return
+            vsum(float):
+            freq(dict):
+            inverted(dict):
+        """
+        current_piece = self.SentencePiece.get_pieces()
         vsum=0
         freq=defaultdict(int) 
+        #inverted[key] stires the set of sentence index where the sentencepiece (key) appears
         inverted=defaultdict(int)
 
         for s,score in self.words.items():
             vsum+=score
+            L = Lattice()
             L.set_sentence(s)
             L.populate_nodes(current_piece,self.Trie)
 
@@ -235,14 +251,23 @@ class UnigramModel:
                     freq[word] += score
                     inverted[word]+=score
 
-        #calc loss
+        return vsum,freq,inverted
+
+
+
+    def prune_step_3_new_piece_cand(self,always_keep,alternatives,vsum,freq,inverted):
+        """
+        Return
+            candiate[]: candidate of new pieces
+            new_sentencepieces(dict):
+        """
         sum_freq = sum(freq.values())
         logsum=log(sum_freq)
 
         candidate=[]
         new_sentencepieces=dict()
 
-        for key, val in current_piece.items():
+        for key, val in self.SentencePiece.get_pieces().items():
             if freq[key]==0 or not always_keep[key]:
                 continue
             elif len(alternatives[key])==0:
@@ -260,15 +285,33 @@ class UnigramModel:
                 loss = F*(logprob_sp-logprob_alt)
                 candidate.append((key,loss))
 
-        pruned_size = max(len(current_piece)*self.shrinking_rate,self.desired_voc_size)
+        return candidate,new_sentencepieces
 
+    def prune_4_prune_candidate(self,candidate,new_sentencepieces):
+        """
+        Return
+            new_sentencepieces(dict):
+        """
+        current_piece = self.SentencePiece.get_pieces()
+        pruned_size = max(len(current_piece)*self.shrinking_rate,self.desired_voc_size)
         for piece,_ in sorted(candidate,key=lambda x:x[1],reverse=True):
             #add piece from candidate in decsengind order of score till piece size reaches to pruned_size
             if len(new_sentencepieces)==pruned_size:
                 break
             new_sentencepieces[piece]=current_piece[piece]
+        print("prune step {} pieces are pruned".format(len(current_piece)- len(new_sentencepieces)))
+        return new_sentencepieces
 
-        print("prune step {} pieces are pruned".format(len(current_piece) - len(new_sentencepieces)))
+    def prune_piece(self):
+        #First, 
+        always_keep,alternatives = self.prune_step_1_always_keep_alternative()
+        #Second, segments all sentences to compute likelihoood with a Unigram LM
+        vsum, freq,inverted = self.prune_step_2_freq_inverted()
+        # Third
+        candidate,new_sentencepieces = self.prune_step_3_new_piece_cand(always_keep,alternatives,vsum,freq,inverted)
+        # Forth,
+        new_sentencepieces = self.prune_4_prune_candidate(candidate,new_sentencepieces)
+
         return new_sentencepieces
 
 
@@ -321,10 +364,16 @@ class UnigramModel:
 
 # sample
 if __name__=="__main__":
-    dummy_arg={"file":"../test/dummy.en","voc":"../res_voc/dummy.en.voc"}
+    arg={
+        "file":"../test/dummy2.en",
+        "voc":"dummy.en.voc",
+        "shrinking_rate":0.75,
+        "desired_voc_size":4000,
+        "seed_sentence_piece_size":1e5
+    }
     #dummy_arg={"src_file":"../test/dummy2.en","src_voc":"../res_voc/dummy2.en.voc"}
     #dummy_arg={"src_file":"../test/dummy3.en","tgt_file":None}
     #dummy_arg={"src_file":"../test/dummy.jap"}
     #dummy_arg={"src_file":"../test/dummy4.en"}
-    U = UnigramModel(dummy_arg)
+    U = UnigramModel(arg)
     U.train()

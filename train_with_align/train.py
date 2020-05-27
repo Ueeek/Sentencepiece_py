@@ -2,6 +2,9 @@ import sys
 sys.path.append("../src/")
 from UnigramModel import UnigramModel
 
+def prune_jointly(U_en,U_ja):
+    pass
+
 def Train_En_JA():
     print("Train")
     arg_en={
