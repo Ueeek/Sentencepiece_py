@@ -9,7 +9,7 @@ class Node:
         self.pos = None
         self.length=None
         self.node_id= None
-        self.vocab_id= None
+        self.is_vocab=None
         self.score = None
         self.backtrace_score= 0 
         self.prev= None
@@ -18,7 +18,6 @@ class Node:
     def set_pos(self,pos): self.pos=pos
     def set_length(self,length): self.length = length
     def set_node_id(self,node_id): self.node_id=node_id
-    def set_vocab_id(self,vocab_id):self.vocab_id=vocab_id
     def set_score(self,score):self.score = score
     def set_backtrace_score(self,score):self.backtrace_score=score
     def set_prev(self,prev):self.prev=prev
@@ -73,7 +72,7 @@ class Lattice:
         self.end_nodes_=[[] for _ in range(size+1)]
 
         bos = Node()
-        bos.set_vocab_id(-1)
+        bos.is_vocab=False
         bos.set_pos(0)
         bos.set_node_id(len(self.nodes))
         bos.set_piece("_bos_")
@@ -83,7 +82,7 @@ class Lattice:
         
         eos = Node()
         eos.set_node_id(len(self.nodes))
-        eos.set_vocab_id(-1)
+        eos.is_vocab=False
         eos.set_pos(size)
         eos.set_piece("_eos_")
         eos.set_score(0)
@@ -97,8 +96,9 @@ class Lattice:
         node.set_piece(piece)
         node.set_length(len(piece))
         node.set_node_id(len(self.nodes))
-        node.set_vocab_id(vocab_id)
         node.set_score(score)
+        node.is_vocab= vocab_id>=0
+
         #id管理をどうするかも問題
         self.nodes[node.node_id]=node
         self.begin_nodes_[pos].append(node.node_id)
@@ -112,7 +112,6 @@ class Lattice:
         for begin_pos in range(self.size):
             #surfaces[i]と共通の接頭辞を持つpieceを見つける
 
-            #TODO Vocab_idを使いたくない
             common_prefixes_trie = [v[1] for v in Trie.prefixes(self.surfaces[begin_pos])]
             for (id,key,score) in common_prefixes_trie:
                 self.insert_node(begin_pos,key,id,score)
@@ -121,10 +120,8 @@ class Lattice:
             #if len(common_prefixes)==0:
                 #print("UNK",common_prefixes)
                 min_score=min(val for _,val in pieces.items())
+                #TODO UNK IDの処理ができてない
                 #TODO scoreは怪しい
-                #print("unk_surface=>",self.surfaces[begin_pos])
-                #print("beg=>",self.surfaces[begin_pos])
-                #多分同じ実装ができていると思う
                 self.insert_node(begin_pos,self.surfaces[begin_pos][0],-1,min_score-10)
             #latticeにセットする
         #print(self.surface)
@@ -161,8 +158,7 @@ class Lattice:
         for pos in range(self.size):
             for node in self.begin_nodes_[pos]:
                 piece = self.nodes[node].piece
-                vocab_id = self.nodes[node].vocab_id
-                if vocab_id<0:
+                if self.nodes[node].is_vocab == False:
                     continue #id=-1でeosとかbosの時
                 expected[piece]+= freq*exp(forward_accm[node]+self.nodes[node].score+backward_accm[node]-Z)
 

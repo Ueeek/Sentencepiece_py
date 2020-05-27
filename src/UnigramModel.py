@@ -117,8 +117,8 @@ class UnigramModel:
 
         assert key in {"src","tgt"}
         if key=="src":
-            self.build_trie(pieces)
             self.SrcSentencePiece.set_sentence_piece(pieces)
+            self.build_trie(pieces)
         elif key=="tgt":
             self.TgtSentencePiece.set_sentence_piece(pieces)
 
@@ -167,7 +167,6 @@ class UnigramModel:
         for key,freq in sorted(self.src_words.items()):
             L = Lattice()
             L.set_sentence(key)
-            self.build_trie(self.SrcSentencePiece.get_pieces())
             L.populate_nodes(self.SrcSentencePiece.get_pieces(),self.Trie)
             Z,ret_expected = L.populate_marginal(freq)
 
@@ -246,7 +245,6 @@ class UnigramModel:
         for key,score in current_piece.items():
             L = Lattice()
             L.set_sentence(key)
-            self.build_trie(self.SrcSentencePiece.get_pieces())
             L.populate_nodes(current_piece,self.Trie)
             nbests = L.NBest(2)
 
@@ -273,7 +271,6 @@ class UnigramModel:
         for s,score in self.src_words.items():
             vsum+=score
             L.set_sentence(s)
-            self.build_trie(self.SrcSentencePiece.get_pieces())
             L.populate_nodes(current_piece,self.Trie)
 
             for node_id in L.Viterbi():
@@ -356,12 +353,12 @@ class UnigramModel:
                 #for key,val in self.SrcSentencePiece.get_pieces().items():
                 #    print("key=> {} score=> {} exp=>{}".format(key,val,expected[key]))
                 new_sentencepieces = self.__run_m_step(expected)
-                self.SrcSentencePiece.set_sentence_piece(new_sentencepieces)
+                self.__set_sentnece_piece(new_sentencepieces)
                 print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(itr,self.SrcSentencePiece.get_piece_size(),objective,num_tokens,num_tokens/self.SrcSentencePiece.get_piece_size()))
 
             new_sentencepieces=self.__prune_piece()
             #print("prooned=>",new_sentencepieces)
-            self.SrcSentencePiece.set_sentence_piece(new_sentencepieces)
+            self.__set_sentnece_piece(new_sentencepieces)
 
         final_piece = self.finalize_sentencepiece()
 
