@@ -230,30 +230,95 @@ class UnigramModel:
 
 
     def __prune_piece(self):
+        #TODO 全てが怪しいのでちゃんと書く
         current_piece = self.SrcSentencePiece.get_pieces()
 
         #pieceをkeyとしてdictで管理
         always_keep=dict()
-        alternatives=dict()
+        alternatives=defaultdict(list)
 
+        #First segments the current sentencepieces to kwon how each sentencepiece is resegmented if this sentencepiece is  removed from vocabulary.
         for key,score in current_piece.items():
             L = Lattice()
             L.set_sentence(key)
             L.populate_nodes(current_piece)
-            #L.populate_nodes(self.SrcSentencePiece.get_pieces())
-            #print("surface_0=>","".join([L.nodes[v].piece for v in nbests[0]]))
             nbests = L.NBest(2)
-            print("nbest.size=>",nbests)
 
-            #if len(nbests)==1:
-            #    always_keep[i]=True
-            #elif len(nbests[0])>=2:
-            #    always_keep[i]=False
-            #elif len(nbests[0])==1:
-            #    always_keep[i]=True
-            #    for node in nbests[1]:
-            #        pass
+            for b in nbests:
+                tmp="".join(L.nodes[v].piece for v in b)
+                assert key==tmp,"key: {} tmp:{}".format(key,tmp)
 
+            if len(nbests)==1:#only one way to resegment it
+                always_keep[key]=True
+                continue
+            elif len(nbests[0])>=2:
+                always_keep[key]=False
+            elif len(nbests[0])==1:
+                always_keep[key]=True
+                alternatives[key]=nbests[1]
+
+        #Second, segments all sentences to compute likelihoood with a Unigram LM
+        #inverted[key] stires the set of sentence index where the sentencepiece (key) appears
+
+        vsum=0
+        freq=defaultdict(int) 
+        inverted=defaultdict(int)
+
+        for s,score in self.src_words.items():
+            vsum+=score
+            L.set_sentence(s)
+            L.populate_nodes(current_piece)
+
+            for node_id in L.Viterbi():
+                word = L.nodes[node_id].piece
+                if node_id>0:
+                    freq[word] += score
+                    inverted[word]+=score
+
+        #calc loss
+        sum_freq = sum(freq.values())
+        logsum=log(sum_freq)
+
+        candidate=[]
+        new_sentencepieces=dict()
+
+        for key, val in current_piece.items():
+            if freq[key]==0 or not always_keep[key]:
+                continue
+            elif len(alternatives[key])==0:
+                new_sentencepieces[key]=val
+            else:
+                F= inverted[key]
+                F/=vsum
+                logprob_sp = log(freq[key])-logsum
+                logsum_alt = log(sum_freq+freq[key]*(len(alternatives)-1))
+
+                logprob_alt=0
+                for alt in alternatives[key]:
+                    logprob_alt += (log(freq[alt]+freq[key])-logsum_alt)
+
+                loss = F*(logprob_sp-logprob_alt)
+                candidate.append((key,loss))
+
+        #TODO Argsで受け取る
+        pruned_size = len(current_piece)*0.75
+
+        for piece, score in sorted(candidate,key=lambda x:x[1],reverse=True):
+            if len(new_sentencepieces)==pruned_size:
+                break
+            new_sentencepieces[piece]=current_piece[piece]
+
+        print("prune step {} pieces are pruned".format(len(current_piece) - len(new_sentencepieces)))
+        return new_sentencepieces
+
+
+
+    def finalize_sentencepiece(self):
+        """最終的な処理
+        fileへの書き込み?
+        """
+        print("finally, {} pieces".format(self.SrcSentencePiece.get_piece_size()))
+        pass
 
     def build_trie(self):
         pass
@@ -285,9 +350,11 @@ class UnigramModel:
                 self.SrcSentencePiece.set_sentence_piece(new_sentencepieces)
                 print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(itr,self.SrcSentencePiece.get_piece_size(),objective,num_tokens,num_tokens/self.SrcSentencePiece.get_piece_size()))
 
-            self.__prune_piece()
-            exit()
+            new_sentencepieces=self.__prune_piece()
+            #print("prooned=>",new_sentencepieces)
+            self.SrcSentencePiece.set_sentence_piece(new_sentencepieces)
 
+        final_piece = self.finalize_sentencepiece()
 
 
 

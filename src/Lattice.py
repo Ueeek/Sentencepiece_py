@@ -189,7 +189,7 @@ class Lattice:
                         best_score = score
 
                 #ここでこけるのでdebug
-                if best_node_id is None:
+                if False and  best_node_id is None:
                     print("surface:=>",self.surface)
                     print("rnode=>",self.nodes[rnode].piece)
                     print("self.surfaces:=>",self.surfaces)
@@ -218,7 +218,6 @@ class Lattice:
         return results
 
     def NBest(self,nbest_size:int)->list:
-        print("call Nbest with=>",nbest_size)
         if nbest_size==1:
             return self.Viterbi()
 
@@ -250,7 +249,6 @@ class Lattice:
 
             #Reach to BOS
             if top_id==self.get_bos_nodes():
-                print("reach to bos in NBest search")
                 tmp_res=[]
 
                 #tupleのindex acssessは見た目的にわかりにくくて好きじゃないので、dictかなんかにしたい。
@@ -292,16 +290,18 @@ class Lattice:
                     heapq.heappush(new_Agenda,t)
                 Agenda = new_Agenda
 
-        print("surface=>", self.surface)
+        result_node_ids=[]
         for res in results:
-            #resには、hypo_idの列が入ってる。他の何かに変えなければ
+            #resには、hypo_idの列が入ってる。他の何かに変えなければ->node_idで帰るようにする
             tmp=[]
+            tmp_node_id=[]
             for h in res[:-1]:
                 node_id = Hypos[h][3]
                 tmp.append(self.nodes[node_id].piece)
-            print(" ".join(map(str,tmp)))
+                tmp_node_id.append(node_id)
             assert self.surface=="".join(map(str,tmp)),"surface {} tmp:{}".format(self.surface," ".join(tmp))
-        return results
+            result_node_ids.append(tmp_node_id)
+        return result_node_ids
 
 
 
