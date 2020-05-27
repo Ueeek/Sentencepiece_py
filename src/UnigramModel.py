@@ -361,5 +361,6 @@ class UnigramModel:
 if __name__=="__main__":
     dummy_arg={"src_file":"../test/dummy.en","tgt_file":None}
     dummy_arg={"src_file":"../test/dummy2.en","tgt_file":None}
+    #dummy_arg={"src_file":"../test/dummy3.en","tgt_file":None}
     U = UnigramModel(dummy_arg)
     U.train()
