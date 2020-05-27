@@ -1,10 +1,10 @@
 from collections import defaultdict
-from pysuffixarray.core import SuffixArray
 from SentencePiece import SentencePiece
 from math import log
 from Lattice import Lattice
 import pygtrie
 from util import *
+from pysuffixarray.core import SuffixArray
 
 
 class UnigramModel:
@@ -37,6 +37,7 @@ class UnigramModel:
 
         print("sentence=>",self.sentences)
         for s in self.sentences:
+            #ここでpretolenizeってのをかましている
             for word in s.split("_"):
                 if len(word)==0:#文の先頭に"_"がついているからsplit[0]は""になる
                     continue
@@ -52,6 +53,7 @@ class UnigramModel:
 #make a suffix_array to extract all sub strings occuring more than 2 times in the sentence
         print("Making Suffix Array")
         A = "".join(array)
+        #A = array
         SA = SuffixArray(A)
 
         print("Extracting frequent sub strings...")
