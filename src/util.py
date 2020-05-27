@@ -1,13 +1,5 @@
 import logging
 from math import log,exp
-def LOG(s:str)->None:
-    """
-    print s as LOG Format
-    """
-    print("LOG {}".format(s))
-    logger=logging.getLogger("*")
-    print(logger.info(s))
-
 
 def UTF8ToUnicodeText(c:chr)->str:
     """ return unicode of c
@@ -17,10 +9,11 @@ def UTF8ToUnicodeText(c:chr)->str:
     return "{:#06x}".format(ord(c))
 
 def UnicodeCharToUTF8(x:int)->chr:
+    """ reverese operation of UTF8ToUnicodeText"""
     return chr(x)
 
 
-def LogSumExp(x,y,init):
+def LogSumExp(x:float,y:float,init:bool)->float:
     kMinusLogEpsilon = 50
     if init:
         return y

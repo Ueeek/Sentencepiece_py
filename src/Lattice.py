@@ -2,25 +2,37 @@ from collections import defaultdict
 import heapq
 from util import LogSumExp
 from math import exp
+import pygtrie
+
 class Node:
+    """ Node of lattice
+    """
     def __init__(self):
+        """ Attributes
+                piece: surace of piece
+                pos: begin pos of this node in the sentence
+                length: length of this node(this piece)
+                is_vocav: True if this is piece else  not-vocab(eos,bos)
+                score: unigram score of this node
+                backtrace_score: backtrace_score of Viterbi
+                prev: prev node of Viterbi path
+        """
         self.piece = None
         self.pos = None
         self.length=None
         self.node_id= None
-        self.vocab_id= None
+        self.is_vocab=None
         self.score = None
         self.backtrace_score= 0 
         self.prev= None
 
-    def set_piece(self,piece): self.piece = piece
-    def set_pos(self,pos): self.pos=pos
-    def set_length(self,length): self.length = length
-    def set_node_id(self,node_id): self.node_id=node_id
-    def set_vocab_id(self,vocab_id):self.vocab_id=vocab_id
-    def set_score(self,score):self.score = score
-    def set_backtrace_score(self,score):self.backtrace_score=score
-    def set_prev(self,prev):self.prev=prev
+    #def set_piece(self,piece): self.piece = piece
+    #def set_pos(self,pos): self.pos=pos
+    #def set_length(self,length): self.length = length
+    #def set_node_id(self,node_id): self.node_id=node_id
+    #def set_score(self,score):self.score = score
+    #def set_backtrace_score(self,score):self.backtrace_score=score
+    #def set_prev(self,prev):self.prev=prev
 
     def __str__(self):
         return "Node piece:{} id:{} pos:{} score:{}".format(self.piece,self.node_id,self.pos,self.score)
@@ -30,20 +42,24 @@ class Node:
 
 
 class Lattice:
+    """ Tokenization Lattice of the sentence
+    """
     def __init__(self):
+        """ Attributes
+            nodes(dict): nodes of this Lattice. key is node id.
+            surface(str): tokenizing sentence
+            surfaces(list): all suffixes .list[i]=> suffixes that begin at pos i
+            size(int): len(surfaces)
+            begin_nodes(list):begin_nodes[i]=> node-ids begin at pos[i]
+            end_nodes(list):end_nodes[i]=> node-ids that end at pos[i]
+        """
+
         self.nodes=dict()
         self.surface=None
         self.surfaces=None
         self.size=None
         self.begin_nodes_=None
         self.end_nodes_=None
-
-    
-    def get_begin_nodes(self,pos:int)->list:
-        return self.begin_nodes_[pos]
-
-    def get_end_nodes(self,pos:int) ->list:
-        return self.end_nodes_[pos]
 
 
     def get_bos_nodes(self)->int:
@@ -58,88 +74,87 @@ class Lattice:
 
     
     def set_sentence(self,s:str):
+        """ set sentence into Lattice
+        """
+
         self.surface=s
-        surfaces=[]
-        for i in range(len(s)):
-            surfaces.append(s[i:])
-
-
+        surfaces=[s[i:] for i in range(len(s))] #all suffixes
         self.surfaces=surfaces
-        size = len(surfaces)
-        self.size=size
+        
+        self.size = len(surfaces)
 
-        self.begin_nodes_=[[] for _ in range(size+1)]
-        self.end_nodes_=[[] for _ in range(size+1)]
+        self.begin_nodes_=[[] for _ in range(self.size+1)]
+        self.end_nodes_=[[] for _ in range(self.size+1)]
 
+        #set bos node to this Lattice
         bos = Node()
-        bos.set_vocab_id(-1)
-        bos.set_pos(0)
-        bos.set_node_id(len(self.nodes))
-        bos.set_piece("_bos_")
-        bos.set_score(0)
+        bos.is_vocab=False
+        bos.pos = 0
+        bos.node_id = len(self.nodes)
+        bos.piece=("_bos")
+        bos.score=0
+
         self.end_nodes_[0].append(bos.node_id)
         self.nodes[bos.node_id]=bos
         
+        #set eos node to this Lattice
         eos = Node()
-        eos.set_node_id(len(self.nodes))
-        eos.set_vocab_id(-1)
-        eos.set_pos(size)
-        eos.set_piece("_eos_")
-        eos.set_score(0)
-        self.begin_nodes_[size].append(eos.node_id)
+        eos.node_id=len(self.nodes)
+        eos.is_vocab=False
+        eos.pos=self.size
+        eos.piece="_eos_"
+        eos.score=0
+
+        self.begin_nodes_[self.size].append(eos.node_id)
         self.nodes[eos.node_id]=eos
 
 
-    def insert_node(self,pos,piece,vocab_id,score):
+    def insert_node(self,pos:int,piece:str,is_vocab:bool,score:int):
+        """ insert node into Lattice
+        """
+
+        #init node
         node = Node()
-        node.set_pos(pos)
-        node.set_piece(piece)
-        node.set_length(len(piece))
-        node.set_node_id(len(self.nodes))
-        node.set_vocab_id(vocab_id)
-        node.set_score(score)
-        #id管理をどうするかも問題
+        node.pos=pos
+        node.piece=piece
+        node.length=len(piece)
+        node.node_id=len(self.nodes)
+        node.score=score
+        node.is_vocab= is_vocab
+
+        # set to Lattice
         self.nodes[node.node_id]=node
         self.begin_nodes_[pos].append(node.node_id)
         self.end_nodes_[pos+node.length].append(node.node_id)
-        return node
 
-    def populate_nodes(self,pieces):
-        """latticeにする
+    def populate_nodes(self,pieces:dict,Trie):
+        """ make Lattice of the sentence with current sentence pieces
+        Args:
+            pieces: sentence piece dict[piece]=score
+            Trie: Trie data structure to find common prefixes efficiently
         """
 
+        #find pieces that have common prefix with surfaces[begin_pos]
         for begin_pos in range(self.size):
-            #surfaces[i]と共通の接頭辞を持つpieceを見つける
-            #TODO あとでtrieで高速化する
-            #print("surface=>",self.surfaces[begin_pos])
-            common_suffixs=[]
-            for id,(piece,score) in enumerate(pieces.items()):
-                if len(piece)>len(self.surfaces[begin_pos]):continue
-                if all(p==s for p,s in zip(piece,self.surfaces[begin_pos])):
-                    #print("common_suffixs=>{} score=>{}".format(piece,score))
-                    self.insert_node(begin_pos,piece,id,score)
-                    common_suffixs.append(piece)
+            common_prefixes_trie = [v[1] for v in Trie.prefixes(self.surfaces[begin_pos])]
+            for (key,score) in common_prefixes_trie:
+                self.insert_node(begin_pos,key,True,score)
 
-            #UNK の処理。common_suffixsのなかに1文字のものがないならUNK処理する
-            if all(len(v)>1 for v in common_suffixs):
-            #if len(common_suffixs)==0:
-                #print("UNK",common_suffixs)
+            if all(len(v[0])>1 for v in common_prefixes_trie):#not contain single char in the common_prefixes
                 min_score=min(val for _,val in pieces.items())
-                #TODO scoreは怪しい
-                #print("unk_surface=>",self.surfaces[begin_pos])
-                #print("beg=>",self.surfaces[begin_pos])
-                #多分同じ実装ができていると思う
-                self.insert_node(begin_pos,self.surfaces[begin_pos][0],-1,min_score-10)
-            #latticeにセットする
-        #print(self.surface)
-        #self.debug_begin_nodes()
-        #self.debug_end_nodes()
-        #print("input something to continue")
-        #input()
-    def populate_marginal(self,freq):
+                #TODO UNK IDの処理ができてない 怪しめ
+                self.insert_node(begin_pos,self.surfaces[begin_pos][0],False,min_score-10)
+
+    def populate_marginal(self,freq:int)->(int,dict):
         """ calculate Marginal Probability
+        Args:
+            freq: frequenct of the string
+
+        Return:
+            expected(dict): expected of each piece ,dict[piece]=score
+            Z: objective?
+            
         """
-        #print("nodes=?>",self.nodes)
 
         forward_accm=[0]*(len(self.nodes)+1)
         backward_accm=[0]*(len(self.nodes)+1)
@@ -155,29 +170,24 @@ class Lattice:
                 for rnode_id in self.begin_nodes_[pos]:
                     backward_accm[lnode_id]=LogSumExp(backward_accm[lnode_id],self.nodes[rnode_id].score+backward_accm[rnode_id],rnode_id==self.begin_nodes_[pos][0])
 
-        #print("self=>",self.surface)
-        #print("for->",forward_accm)
-        #print("back=>",backward_accm)
-        
-
         expected=defaultdict(int)
         Z = forward_accm[self.begin_nodes_[self.size][0]]
         for pos in range(self.size):
             for node in self.begin_nodes_[pos]:
                 piece = self.nodes[node].piece
-                vocab_id = self.nodes[node].vocab_id
-                if vocab_id<0:
-                    continue #id=-1でeosとかbosの時
+                if not self.nodes[node].is_vocab:#node is eos or bos
+                    continue #id
                 expected[piece]+= freq*exp(forward_accm[node]+self.nodes[node].score+backward_accm[node]-Z)
 
         return Z*freq,expected
 
     def Viterbi(self):
         """ calculate Viterbi path
+        Return
+            best_path_ids(list): Viterbi path. list of node_id consists of best tokenization of the sentence
         """
         for pos in range(self.size+1):
             for rnode in self.begin_nodes_[pos]:
-                #print("rnode_suf=>",self.nodes[rnode].piece)
                 self.nodes[rnode].prev=None
                 best_score=0
                 best_node_id=None
@@ -188,92 +198,101 @@ class Lattice:
                         best_node_id=lnode
                         best_score = score
 
-                #ここでこけるのでdebug
-                if False and  best_node_id is None:
-                    print("surface:=>",self.surface)
-                    print("rnode=>",self.nodes[rnode].piece)
-                    print("self.surfaces:=>",self.surfaces)
-                    self.debug_begin_nodes()
-                    self.debug_end_nodes()
-                assert best_node_id is not None ,"faild to faind best path in Viterbi"
+                assert best_node_id is not None ,"faild to faind best path in Viterbi surface:{} rnode:{}".format(self.surface,self.nodes[rnode].piece)
+
                 self.nodes[rnode].prev = best_node_id
                 self.nodes[rnode].backtrace_score = best_score
                 
         # back trace
-        results=[]
-        res_suf=[]
+        best_path_ids=[]
+        best_path_surfaces=[]
 
-        node=self.begin_nodes_[self.size][0]
-        node=self.nodes[node].prev
-        while self.nodes[node].prev is not None:
-            results.append(self.nodes[node].node_id)
-            res_suf.append(self.nodes[node].piece)
-            node = self.nodes[node].prev
+        cur_node=self.begin_nodes_[self.size][0]
+        cur_node=self.nodes[cur_node].prev
+        while self.nodes[cur_node].prev is not None:
+            best_path_ids.append(self.nodes[cur_node].node_id)
+            best_path_surfaces.append(self.nodes[cur_node].piece)
+            cur_node = self.nodes[cur_node].prev
 
-        results = list(reversed(results))
-        res_suf = list(reversed(res_suf))
+        best_path_ids = list(reversed(best_path_ids))
+        best_path_surfaces = list(reversed(best_path_surfaces))
         
-        
-        assert self.surface=="".join(res_suf),"surface: {}  viterbi: {}".format(self.surface," ".join(res_suf))
-        return results
+        assert self.surface=="".join(best_path_surfaces),"surface: {}  viterbi: {}".format(self.surface," ".join(best_path_surfacesf))
+        return best_path_ids
 
     def NBest(self,nbest_size:int)->list:
+        """ calculate Nbest tokenization of the sentence
+        Return:
+            results(list): results[i] = i-th best tokenization ids
+        """
+
         if nbest_size==1:
             return self.Viterbi()
 
         results=[]
-
         kPreallocatedHypothesisSize = 512
 
-        Agenda=[] #heapq (key is fx)
+        #hypothesis
+        Agenda=[]
         Hypos=dict()
 
         #node is tuple (fx,gx,next_hypothesis,node_id,hypo_id)
-        #fxの大きい順に優先度が高くあって欲しい
+        def make_hypo(fx:int,gx:int,next_hypothesis:int,node_id:int,hypo_id:int)->tuple:
+            """ 
+                fx
+                gx:
+                new_hypothesis:
+                node_id: node id of the Lattice (self.node)
+                hypo_id: id of hypo
+            """
+            return (-fx,-gx,{"fx":fx,"gx":gx,"next_hypo":next_hypothesis,"node_id":node_id,"hypo_id":hypo_id})
+
+        #init eos hypo(start from eos)
         eos_node_id=self.get_eos_nodes()
         eos_score = self.nodes[eos_node_id].score
         eos_hypo_id=len(Hypos)
-        eos_tup=(-eos_score,-eos_score,None,eos_node_id,eos_hypo_id)
-        #eos_node=(eos_score,eos_score,None,eos_node_id)
 
-        Hypos[eos_hypo_id]=eos_tup
+        eos_hypo = make_hypo(eos_score,eos_score,None,eos_node_id,eos_hypo_id)
 
-        heapq.heappush(Agenda,eos_tup)
+        Hypos[eos_hypo_id]=eos_hypo
+
+        #add node into Agenda: heapq. acsending order of -fx(descending order of fx)
+        heapq.heappush(Agenda,eos_hypo)
 
         #Run viterbi to fill bachtrace score of each node
         self.Viterbi()
 
         while Agenda:
-            top_tup = heapq.heappop(Agenda)
-            (top_fx,top_gx,top_prev,top_id,top_hypo_id) = top_tup
+            (_,_,top_hypo) = heapq.heappop(Agenda)
 
             #Reach to BOS
-            if top_id==self.get_bos_nodes():
+            if top_hypo["node_id"]==self.get_bos_nodes():
                 tmp_res=[]
 
-                #tupleのindex acssessは見た目的にわかりにくくて好きじゃないので、dictかなんかにしたい。
-                nex=Hypos[top_hypo_id]
-                while nex[2] is not None:
-                    tmp_res.append(nex[2])
-                    nex = Hypos[nex[2]]
+                (_,_,nex)=Hypos[top_hypo["hypo_id"]]
+                while nex["next_hypo"] is not None:
+                    tmp_res.append(nex["next_hypo"])
+                    _,_,nex = Hypos[nex["next_hypo"]]
                 results.append(tmp_res)
                 if len(results)==nbest_size:
                     break
                 continue
 
             #expands new node ending at node->pos
-            #tupleのidがかぶりんちょしそう
-            for lnode in self.end_nodes_[self.nodes[top_id].pos]:
-                new_gx= self.nodes[lnode].score + -Hypos[top_hypo_id][1]
-                new_fx = self.nodes[lnode].backtrace_score + -Hypos[top_hypo_id][1]
-                new_next = top_hypo_id
-                new_hypo_id=len(Hypos)
-                new_hypo_tup=(-new_fx,-new_gx,new_next,lnode,new_hypo_id)
+            for lnode in self.end_nodes_[self.nodes[top_hypo["node_id"]].pos]:
+                _,_,cur_hypo = Hypos[top_hypo["hypo_id"]]
+                cur_gx =cur_hypo["gx"]
+                new_gx= self.nodes[lnode].score + cur_gx
+                new_fx = self.nodes[lnode].backtrace_score + cur_gx
+                new_next = top_hypo["hypo_id"]
 
-                heapq.heappush(Agenda,new_hypo_tup)
+                new_hypo_id=len(Hypos)
+                new_hypo=make_hypo(new_fx,new_gx,new_next,lnode,new_hypo_id)
+
+                heapq.heappush(Agenda,new_hypo)
                 if new_hypo_id in Hypos.keys():
                     print("kesy")
-                Hypos[new_hypo_id]=new_hypo_tup
+                Hypos[new_hypo_id]=new_hypo
 
             #枝かり
             kMaxAgendaSize = 1e5
@@ -296,28 +315,29 @@ class Lattice:
             tmp=[]
             tmp_node_id=[]
             for h in res[:-1]:
-                node_id = Hypos[h][3]
+                _,_,cur_hypo=Hypos[h]
+                node_id = cur_hypo["node_id"]
                 tmp.append(self.nodes[node_id].piece)
                 tmp_node_id.append(node_id)
             assert self.surface=="".join(map(str,tmp)),"surface {} tmp:{}".format(self.surface," ".join(tmp))
             result_node_ids.append(tmp_node_id)
         return result_node_ids
 
-
-
-
-
-
-
     
-    def debug_begin_nodes(self):
+    def __debug_begin_nodes(self):
+        """ function for debug
+        """
+
         print("debug_begin_nodes")
         for i in range(self.size+1):
             print("begin_pos=>",i)
             for be in self.begin_nodes_[i]:#be=node_id
                 print("\t node:{}".format(self.nodes[be]))
 
-    def debug_end_nodes(self):
+    def __debug_end_nodes(self):
+        """ function for debug
+        """
+
         print("debug_end_nodes")
         for i in range(self.size+1):
             print("end_pos=>",i)
