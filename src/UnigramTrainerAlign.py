@@ -23,6 +23,23 @@ def get_viterbi_path(s, U):
     viterbi_tokens = L.Viterbi(ret_piece=True)
     return viterbi_tokens
 
+def get_bitexts(U_s,U_t):
+    """
+    srcとtgtをbest tokenizeしてreturn　する
+    Arguments:
+        U_s,U_t: Unigram model for source and tgt respectively
+    Return
+        bitexts(list): text pair for train ibm
+    """
+    bitexts = []
+    for src, tgt in zip(U_s.sentences, U_t.sentences):
+        src_viterbi = get_viterbi_path(src, U_s)
+        tgt_viterbi = get_viterbi_path(tgt, U_t)
+        bitexts.append(AlignedSent(tgt_viterbi, src_viterbi))
+    return bitexts
+
+def no_alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
+    return defaultdict(int)
 
 def alignment_loss_all_alignment(U_s, U_t, always_keep_s, alternatives_s, freq_s):
     """ alignlossを求めたい
@@ -41,12 +58,7 @@ def alignment_loss_all_alignment(U_s, U_t, always_keep_s, alternatives_s, freq_s
     * sum(tt[t][src] for t in tt.keys())=1 tgtはNoneを含まないから
     """
 
-    bitexts = []
-    for src, tgt in zip(U_s.sentences, U_t.sentences):
-        src_viterbi = get_viterbi_path(src, U_s)
-        tgt_viterbi = get_viterbi_path(tgt, U_t)
-        bitexts.append(AlignedSent(tgt_viterbi, src_viterbi))
-
+    bitexts = get_bitexts(U_s,U_t)
     # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
     ibm1 = IBMModel1(bitexts, 2)
 
@@ -113,16 +125,7 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
     * sum(tt[t][src] for t in tt.keys())=1 tgtはNoneを含まないから
     """
 
-    bitexts = []
-    for src, tgt in zip(U_s.sentences, U_t.sentences):
-        # srcのviterbi tokenize
-        src_viterbi = get_viterbi_path(src, U_s)
-        tgt_viterbi = get_viterbi_path(tgt, U_t)
-        # print("src=>",src_viterbi)
-        # pritn("tgt=>",tgt_viterbi)
-        # print("########")
-        bitexts.append(AlignedSent(tgt_viterbi, src_viterbi))
-
+    bitexts = get_bitexts(U_s,U_t)
     # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
     ibm1 = IBMModel1(bitexts, 2)
 
@@ -176,12 +179,16 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
     #    print("word:{}->{}".format(key,AlignedWords[key].items()))
     return candidate_s
 
+def prune_step_with_align(U_s,U_t,src_func,tgt_func=None):
+    """
+        引数でどうやってalignlossを計算するかを切り替えたい
+    Arguments:
+        src_func: U_sのalign lossを計算する関数
+        tgt_func:　src_funcを同様。Noneなら、src_funcと同じものとする
+    """
+    if tgt_func is None:
+        tgt_func = src_func
 
-def prune_jointly_src(U_s, U_t):
-    """
-     jointly prune step
-     consider align loss only source side
-    """
     always_keep_s, alternatives_s = U_s.prune_step_1_always_keep_alternative()
     always_keep_t, alternatives_t = U_t.prune_step_1_always_keep_alternative()
 
@@ -193,96 +200,21 @@ def prune_jointly_src(U_s, U_t):
     LM_loss_t, new_sentencepieces_t = U_t.prune_step_3_new_piece_cand(
         always_keep_t, alternatives_t, vsum_t, freq_t, inverted_t)
 
-    align_loss_s = alignment_loss(
-        U_s, U_t, always_keep_s, alternatives_s, freq_s)
-
-    # print("LM_loss_s=>",LM_loss_s)
-    # print("align_loss_s=>",align_loss_s)
-    # candididateは(piece,loss_LM)
-
-    joint_loss_s = dict()
-    joint_loss_t = LM_loss_t
-    for key in LM_loss_s.keys():
-        joint_loss_s[key] = LM_loss_s[key]+align_loss_s[key]
-
-    new_piece_s = U_s.prune_4_prune_candidate(
-        joint_loss_s, new_sentencepieces_s)
-    new_piece_t = U_t.prune_4_prune_candidate(
-        joint_loss_t, new_sentencepieces_t)
-    return new_piece_s, new_piece_t
-
-
-def prune_jointly_both_all_align(U_s, U_t):
-    """
-     jointly prune step
-     consider all alignments
-    """
-    always_keep_s, alternatives_s = U_s.prune_step_1_always_keep_alternative()
-    always_keep_t, alternatives_t = U_t.prune_step_1_always_keep_alternative()
-
-    vsum_s, freq_s, inverted_s = U_s.prune_step_2_freq_inverted()
-    vsum_t, freq_t, inverted_t = U_t.prune_step_2_freq_inverted()
-
-    LM_loss_s, new_sentencepieces_s = U_s.prune_step_3_new_piece_cand(
-        always_keep_s, alternatives_s, vsum_s, freq_s, inverted_s)
-    LM_loss_t, new_sentencepieces_t = U_t.prune_step_3_new_piece_cand(
-        always_keep_t, alternatives_t, vsum_t, freq_t, inverted_t)
-
-    align_loss_s = alignment_loss_all_alignment(
-        U_s, U_t, always_keep_s, alternatives_s, freq_s)
-    align_loss_t = alignment_loss_all_alignment(
-        U_t, U_s, always_keep_t, alternatives_t, freq_t)
+    align_loss_s = src_func(U_s,U_t,always_keep_s,alternatives_s,freq_s)
+    align_loss_t = tgt_func(U_t,U_s,always_keep_t,alternatives_t,freq_t)
 
     joint_loss_s = dict()
     joint_loss_t = dict()
     for key in LM_loss_s.keys():
         joint_loss_s[key] = LM_loss_s[key]+align_loss_s[key]
-
     for key in LM_loss_t.keys():
-        joint_loss_t[key] = LM_loss_t[key] + align_loss_t[key]
+        joint_loss_t[key] = LM_loss_t[key]+align_loss_t[key]
+
     new_piece_s = U_s.prune_4_prune_candidate(
         joint_loss_s, new_sentencepieces_s)
     new_piece_t = U_t.prune_4_prune_candidate(
         joint_loss_t, new_sentencepieces_t)
     return new_piece_s, new_piece_t
-
-
-def prune_jointly_both(U_s, U_t):
-    """
-     jointly prune step
-    """
-    always_keep_s, alternatives_s = U_s.prune_step_1_always_keep_alternative()
-    always_keep_t, alternatives_t = U_t.prune_step_1_always_keep_alternative()
-
-    vsum_s, freq_s, inverted_s = U_s.prune_step_2_freq_inverted()
-    vsum_t, freq_t, inverted_t = U_t.prune_step_2_freq_inverted()
-
-    LM_loss_s, new_sentencepieces_s = U_s.prune_step_3_new_piece_cand(
-        always_keep_s, alternatives_s, vsum_s, freq_s, inverted_s)
-    LM_loss_t, new_sentencepieces_t = U_t.prune_step_3_new_piece_cand(
-        always_keep_t, alternatives_t, vsum_t, freq_t, inverted_t)
-
-    align_loss_s = alignment_loss(
-        U_s, U_t, always_keep_s, alternatives_s, freq_s)
-    align_loss_t = alignment_loss(
-        U_t, U_s, always_keep_t, alternatives_t, freq_t)
-
-    # print("LM_loss_s=>",LM_loss_s)
-    # print("align_loss_s=>",align_loss_s)
-    # candididateは(piece,loss_LM)
-    joint_loss_s = dict()
-    joint_loss_t = dict()
-    for key in LM_loss_s.keys():
-        joint_loss_s[key] = LM_loss_s[key]+align_loss_s[key]
-
-    for key in LM_loss_t.keys():
-        joint_loss_t[key] = LM_loss_t[key] + align_loss_t[key]
-    new_piece_s = U_s.prune_4_prune_candidate(
-        joint_loss_s, new_sentencepieces_s)
-    new_piece_t = U_t.prune_4_prune_candidate(
-        joint_loss_t, new_sentencepieces_t)
-    return new_piece_s, new_piece_t
-
 
 def train_align(arg_src, arg_tgt, alter=False):
     """
@@ -332,15 +264,14 @@ def train_align(arg_src, arg_tgt, alter=False):
         #new_piece_tgt = U_tgt.prune_piece()
 
         if alter:
-            # 片方しかやらない
-            if step_cnt % 2:
-                new_piece_src, new_piece_tgt = prune_jointly_src(U_src, U_tgt)
-            else:
-                new_piece_tgt, new_piece_src = prune_jointly_src(U_tgt, U_src)
+            if step_cnt % 2:#srcのみ
+                new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss,no_alignment_loss)
+            else:#tgtのみ
+                new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,no_alignment_loss,alignment_loss)
         else:
             # 両方同時にやる
-            new_piece_src, new_piece_tgt = prune_jointly_both(U_src, U_tgt)
-            #new_piece_src, new_piece_tgt = prune_jointly_both_all_align(U_src, U_tgt)
+            new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss)
+            #new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss_all_alignment)
 
         U_src.set_sentnece_piece(new_piece_src)
         U_tgt.set_sentnece_piece(new_piece_tgt)
