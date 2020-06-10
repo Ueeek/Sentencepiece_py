@@ -102,8 +102,8 @@ def alignment_loss_all_alignment(U_s, U_t, always_keep_s, alternatives_s, freq_s
                 logP_alt = log(p_alt)
                 loss += val/sum_val*(logP_key - logP_alt)
             candidate_s[s_key] = loss
-    print("zero_rate =>", sum(v == 0 for v in candidate_s.values())/len(candidate_s))
-    print("no_align_rate=>", no_align_cnt/all_align_cnt)
+    #print("zero_rate =>", sum(v == 0 for v in candidate_s.values())/len(candidate_s))
+    #print("no_align_rate=>", no_align_cnt/all_align_cnt)
     #print("top_10=>",list(sorted(AlignedCnt.items(),key=lambda x:-x[1]))[:10])
     return candidate_s
 
@@ -216,7 +216,7 @@ def prune_step_with_align(U_s,U_t,src_func,tgt_func=None):
         joint_loss_t, new_sentencepieces_t)
     return new_piece_s, new_piece_t
 
-def train_align(arg_src, arg_tgt, alter=False):
+def train_align(arg_src, arg_tgt, alter=False,allA=False):
     """
     Arguments:
         alter(bool): false ならsrcとtgt、同じステップで両方ともpruneでalinを考慮する・
@@ -260,18 +260,17 @@ def train_align(arg_src, arg_tgt, alter=False):
         if U_src.SentencePiece.get_piece_size() <= U_src.desired_voc_size and U_tgt.SentencePiece.get_piece_size() <= U_tgt.desired_voc_size:
             break
 
-        #new_piece_src = U_src.prune_piece()
-        #new_piece_tgt = U_tgt.prune_piece()
-
         if alter:
             if step_cnt % 2:#srcのみ
                 new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss,no_alignment_loss)
             else:#tgtのみ
                 new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,no_alignment_loss,alignment_loss)
         else:
-            # 両方同時にやる
-            new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss)
-            #new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss_all_alignment)
+            if allA:
+                new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss_all_alignment)
+            else:
+                new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss)
+
 
         U_src.set_sentnece_piece(new_piece_src)
         U_tgt.set_sentnece_piece(new_piece_tgt)

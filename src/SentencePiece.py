@@ -8,7 +8,7 @@ class SentencePiece:
         """
         self.sentencepieces = []
 
-    def set_sentence_piece(self, pieces):
+    def _set_sentence_piece(self, pieces):
         """
         set argument piece into this state
 
