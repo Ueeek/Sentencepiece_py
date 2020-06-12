@@ -6,9 +6,8 @@ from UnigramTrainer import Train
 def Train_En():
     print("Train EN")
     arg = {
-        "file": "../corpus/train.en",
-        "voc": "./test/separate.en.voc",
-        "use_original_make_seed":True,
+        "file": "../corpus/train50K.en",
+        "voc": "./res_vo2/separate.en.voc",
         "shrinking_rate": 0.75,
         "desired_voc_size": 4000,
         "seed_sentence_piece_size": 1e5
@@ -19,8 +18,8 @@ def Train_En():
 def Train_Ja():
     print("Train JA")
     arg = {
-        "file":"../corpus/train.jap",
-        "voc": "./test/separate.jap.voc",
+        "file":"../corpus/train50K.jap",
+        "voc": "./res_vo2/separate.jap.voc",
         "shrinking_rate": 0.75,
         "desired_voc_size": 4000,
         "seed_sentence_piece_size": 1e5
@@ -30,4 +29,4 @@ def Train_Ja():
 
 if __name__ == "__main__":
     Train_En()
-    #Train_Ja()
+    Train_Ja()

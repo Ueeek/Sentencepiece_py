@@ -41,3 +41,22 @@ def Digamma(x: float) -> float:
     result += log(x) + (1.0 / 24.0) * xx2 - (7.0 / 960.0) * xx4 + \
         (31.0 / 8064.0) * xx4 * xx2 - (127.0 / 30720.0) * xx4 * xx4
     return result
+
+def isValidCodepoint(c:chr)->bool:
+    v=ord(c)
+    return v<0xD800 or 0xE000<=v<=0x10FFFF
+
+def isValidSentencePiece(sb:str)->bool:
+    if len(sb)<=0:
+        return False
+
+    is_number= 0x30<=ord(sb)<=0x39
+
+    for c in sb:
+        if ord(c)==0x0000:
+            return False
+        if ord(c)==0x0020:
+            return False
+        if isValidCodepoint(c):
+            return False
+        #originalはunicode平仮名、katakanaをhanに変換してる

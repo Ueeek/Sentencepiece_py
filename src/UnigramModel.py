@@ -6,6 +6,8 @@ import pygtrie
 from util import *
 from pysuffixarray.core import SuffixArray
 
+import subprocess
+
 
 class UnigramModel:
     """どこまで仕事をするのか
@@ -19,6 +21,9 @@ class UnigramModel:
         self.shrinking_rate = argv["shrinking_rate"]
         self.desired_voc_size = argv["desired_voc_size"]
         self.seed_sentence_piece_size = argv["seed_sentence_piece_size"]
+
+        self.use_original_make_seed = argv["use_original_make_seed"]
+
 
         # original spの"_"の太文字みたいな文字
         self.sep_voc = chr(9601)
@@ -41,6 +46,22 @@ class UnigramModel:
                 Voc[key] = float(val)
         self.set_sentnece_piece(Voc)
 
+    def load_seed_sentencepiece_from_file(self):
+        print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
+        try:
+            res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix","tmp","--seed_sentencepiece_size",str(self.seed_sentence_piece_size)])
+            print("res=>",res)
+        except:
+            print("error")
+            exit()
+        print(res)
+        Voc={}
+        with open("tmp.vocab") as f:
+            for s in f:
+                key,val = s.split("\t")
+                Voc[key]=float(val)
+        return Voc
+
     def make_seed_sentence_piece(self):
         """ set init vocabulary of sentence piece
 
@@ -57,19 +78,24 @@ class UnigramModel:
         for (word, freq) in self.words.items():
             # ここでpretolenizeってのをかましている
             for c in word:
+                uni_c = UTF8ToUnicodeText(c)
+                c = UnicodeCharToUTF8(uni_c)
+                assert isValidCodepoint(c),"isValidCodepoint {}".format(c)
+                assert c!=0x0020,"space must not be included"
+                if c==kSentenceBoundary:
+                    print("Find null char")
+                    continue
                 # really needed?
-                #uni_c = UTF8ToUnicodeText(c)
-                #c = UnicodeCharToUTF8(uni_c)
                 array.append(c)
-                if c != kSentenceBoundary:
-                    all_chars[c] += freq
+                all_chars[c] += freq
             array.append(kSentenceBoundary)
 
         print("alphabet=>", len(all_chars))
 
         # make a suffix_array to extract all sub strings occuring more than 2 times in the sentence
-        print("Making Suffix Array")
+        # ここは、配列のサイズによって、分割した方が良さそうな気がする?sa-isでやっているはずで、線形アルゴリズムだから関係ない説もある
         A = "".join(array)
+        print("Making Suffix Array len:{}".format(len(array)))
         SA = SuffixArray(A)
 
         print("Extracting frequent sub strings...")
@@ -86,6 +112,9 @@ class UnigramModel:
             if any(v == kSentenceBoundary for v in sb):  # 途中に 0x00が入っているのはinvalid
                 continue
 
+            if not isValidSentencePiece(sb):
+                continue
+
             # それでも残ったやつは、2回以上出てくるsbst
             freq = len(SA.match(sb))
             assert freq >= 2
@@ -96,11 +125,10 @@ class UnigramModel:
         if len(seed_sentencepieces) > self.seed_sentence_piece_size:
             pass
         elif len(seed_sentencepieces)+len(substr) > self.seed_sentence_piece_size:
-            delete_size = len(seed_sentencepieces) + \
-                len(substr) - seed_sentencepieces
+            delete_size = len(seed_sentencepieces) + len(substr) -  self.seed_sentence_piece_size
             print(
                 "del {} freq-sbst because of seed_sentence_piece_size".format(delete_size))
-            for sb, val in substr[:delete_size]:
+            for sb, val in substr[:int(delete_size)]:
                 seed_sentencepieces[sb] = val
         else:
             for sb, val in substr:
@@ -132,11 +160,11 @@ class UnigramModel:
         words = defaultdict(int)
         with open(self.file) as f:
             for s in f:
+                #originalは半角のみを扱っていたので、半角のみを扱うようにする。
                 # _s = "_"+"_".join(s.split(" "))#全角と半角のspaceを区別するか(\tとか\nもsplitされるs.split())
-                _s = self.sep_voc + self.sep_voc.join(s.split())
-                for w in s.split():
+                _s = self.sep_voc + self.sep_voc.join(s.split(" "))
+                for w in s.split(" "):
                     words[self.sep_voc+w] += 1
-
                 sentences.append(_s)
 
         self.sentences = sentences
@@ -356,7 +384,10 @@ class UnigramModel:
         """ training 
         """
         self.load_sentence()
-        seed_sentencepieces = self.make_seed_sentence_piece()
+        if self.use_original_make_seed:
+            seed_sentencepieces = self.load_seed_sentencepiece_from_file()
+        else:
+            seed_sentencepieces = self.make_seed_sentence_piece()
         self.set_sentnece_piece(seed_sentencepieces)
 
         step_cnt = 0
