@@ -1,3 +1,5 @@
+import sys
+import os
 from collections import defaultdict
 from SentencePiece import SentencePiece
 from math import log
@@ -5,6 +7,7 @@ from Lattice import Lattice
 import pygtrie
 from util import *
 from pysuffixarray.core import SuffixArray
+
 
 import subprocess
 
@@ -47,16 +50,26 @@ class UnigramModel:
         self.set_sentnece_piece(Voc)
 
     def load_seed_sentencepiece_from_file(self):
-        print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
-        try:
-            res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix","tmp","--seed_sentencepiece_size",str(self.seed_sentence_piece_size)])
-            print("res=>",res)
-        except:
-            print("error")
-            exit()
-        print(res)
+        """c++のsentencepieceのmake_seedを呼び出してvocをとってくる。
+        unigram_model_trainer.c++のEM前で、seed_pieceを求めた後に、fileに SaveVocab()と似た感じで、fileに書き込んで終了している。
+        EMに入る前で止めている。
+        original sentence pieceを書き換えないと動かないので注意
+        """
+        f_name=self.file.split("/")[-1]
+        if os.path.isfile(f_name+".seed.vocab"):
+            print("seed file is already exsists. skip c++ code")
+        else:
+            print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
+            try:
+                res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size)])
+                print("res=>",res)
+            except:
+                print("error")
+                exit()
+            print(res)
+
         Voc={}
-        with open("tmp.vocab") as f:
+        with open(f_name+".seed.vocab") as f:
             for s in f:
                 key,val = s.split("\t")
                 Voc[key]=float(val)
@@ -205,7 +218,7 @@ class UnigramModel:
             new_sentencepieces: list of sentencepiece
         """
 
-        assert self.SentencePiece.get_piece_size() == len(expected)
+        assert self.SentencePiece.get_piece_size() >=len(expected),"different:{}".format(expected.keys()-self.SentencePiece.get_pieces().keys())
 
         new_pieces = dict()
         sum_freq = 0
@@ -213,6 +226,9 @@ class UnigramModel:
         # filter infrequent sentencepieces here
         for key, val in self.SentencePiece.get_pieces().items():
             freq = expected[key]
+            if freq==0:
+                #seed pieceをoriginalから持ってきている場合、expected[piece]がない場合(default dicなので0)になることがある。skipする
+                print("cntinue at m step {}".format(key))
 
             if freq < kExpectedFrequencyThreshold:
                 continue
@@ -322,6 +338,8 @@ class UnigramModel:
                     logprob_alt += (log(freq[alt]+freq[key])-logsum_alt)
 
                 # Freq*(logp(x)-logp(x_alts))
+                #(P(X)よりP(x_alt)の方が高いとき、logp(x)= -大 logp(x_alt)=-小->loss=-大
+                #P(x)が小さい場合->pieceを分けた方がいい。
                 loss = F*(logprob_sp-logprob_alt)
                 candidate[key] = loss
 
@@ -333,11 +351,14 @@ class UnigramModel:
             candidate(dict): dict[key] = loss of key
             new_sentencepieces(dict):
         """
+        assert  len(new_sentencepieces)<=self.desired_voc_size,"{}".format(len(new_sentencepieces))
         current_piece = self.SentencePiece.get_pieces()
         pruned_size = max(
             int(len(current_piece)*self.shrinking_rate), self.desired_voc_size)
 
         candidate_list = [(key, val) for key, val in candidate.items()]
+        #for piece, _ in sorted(candidate_list, key=lambda x: x[1], reverse=True):
+        #lossはp(x)<p(x_alt)の時に、-大(xを分割したいとき),逆に loss=が大きい時は、p(x)を残した方がいいとき。よって、sorted(reverse)
         for piece, _ in sorted(candidate_list, key=lambda x: x[1], reverse=True):
             # add piece from candidate in decsengind order of score till piece size reaches to pruned_size
             if len(new_sentencepieces) == pruned_size:
@@ -345,6 +366,7 @@ class UnigramModel:
             new_sentencepieces[piece] = current_piece[piece]
         print("prune step {} pieces are pruned".format(
             len(current_piece) - len(new_sentencepieces)))
+        #assert len(current_piece)==len(new_sentencepieces),"no piece is  pruned"
         return new_sentencepieces
 
     def prune_piece(self):
@@ -359,6 +381,7 @@ class UnigramModel:
         new_sentencepieces = self.prune_4_prune_candidate(
             candidate, new_sentencepieces)
 
+        assert self.SentencePiece.get_piece_size()!=len(new_sentencepieces),"no piece is  pruned"
         return new_sentencepieces
 
     def finalize_sentencepiece(self):
@@ -380,17 +403,22 @@ class UnigramModel:
             Trie[key] = (key, score)
         self.Trie = Trie
 
-    def train(self):
-        """ training 
-        """
-        self.load_sentence()
+    def make_seed(self):
         if self.use_original_make_seed:
             seed_sentencepieces = self.load_seed_sentencepiece_from_file()
         else:
             seed_sentencepieces = self.make_seed_sentence_piece()
+        return seed_sentencepieces
+
+    def train(self):
+        """ training 
+        """
+        self.load_sentence()
+        seed_sentencepieces = self.make_seed()
         self.set_sentnece_piece(seed_sentencepieces)
 
         step_cnt = 0
+        print("init vocab size is {}\n start EM trainind".format(self.SentencePiece.get_piece_size()))
         while True:
             step_cnt += 1
             for itr in range(2):  # EM iteration loop

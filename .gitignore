@@ -3,5 +3,10 @@ test
 test5K
 test10K
 testFull
+test50K
 corpus/
 !test/scripts
+train_separate/*.vocab
+train_with_align/*.vocab
+train_with_align/res_voc
+

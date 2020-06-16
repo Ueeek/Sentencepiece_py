@@ -1,4 +1,5 @@
 # lattice とUnigramをimport するために必要
+#TODO 普段使うなって感じだけど、align_lossの計算をいじるために、新しくコピーして作ったファイル。あとで消せ
 from nltk.translate import IBMModel1
 from nltk.translate import IBMModel
 from nltk.translate import Alignment
@@ -96,7 +97,8 @@ def alignment_loss_all_alignment(U_s, U_t, always_keep_s, alternatives_s, freq_s
                 p_t_s_alt = max(
                     ibm1.translation_table[t_key][s_key_alt] for s_key_alt in alternatives_s[s_key])
 
-                p_alt = p_t_s_alt+p_t_s/len(alternatives_s[s_key])
+                #p_alt = p_t_s_alt+p_t_s/len(alternatives_s[s_key])
+                p_alt = p_t_s_alt
                 logP_key = log(p_t_s)  # logP(t|x)
                 # P(t|x)がx_altにequally distributed
                 logP_alt = log(p_alt)
