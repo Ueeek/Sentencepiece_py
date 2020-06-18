@@ -19,17 +19,17 @@ class UnigramModel:
     def __init__(self, argv):
         """ get parameter from argv
         """
-        self.file = argv["file"]
-        self.out_voc_file = argv["voc"]
-        self.shrinking_rate = argv["shrinking_rate"]
-        self.desired_voc_size = argv["desired_voc_size"]
-        self.seed_sentence_piece_size = argv["seed_sentence_piece_size"]
+        self.file = arg_parser(argv,"file",required=True)
+        self.out_voc_file = arg_parser(argv,"voc",required=True)
+        self.shrinking_rate = arg_parser(argv,"shrinking_rate",default_val=0.75)
+        self.desired_voc_size = arg_parser(argv,"shrinking_rate",default_val=8000)
+        self.seed_sentence_piece_size = arg_parser(argv,"seed_sentence_piece_size",default_val=1e5)
 
-        self.use_original_make_seed = argv["use_original_make_seed"]
-        self.unk_surface="⁇"
+        self.use_original_make_seed = arg_parser(argv,"use_original_make_seed")
+        self.unk_surface=arg_parser(argv,"unk_surface",default_val="⁇")
 
         # original spの"_"の太文字みたいな文字
-        self.sep_voc = chr(9601)
+        self.sep_voc = arg_parser(argv,"sep_voc",default_val=chr(9601))
 
         self.SentencePiece = SentencePiece()
         self.Trie = None
