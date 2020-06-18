@@ -8,7 +8,6 @@ from Lattice import Lattice
 from UnigramModel import UnigramModel
 from collections import defaultdict
 
-
 def get_viterbi_path(s, U):
     """
     Arguments:
@@ -102,9 +101,6 @@ def alignment_loss_all_alignment(U_s, U_t, always_keep_s, alternatives_s, freq_s
                 logP_alt = log(p_alt)
                 loss += val/sum_val*(logP_key - logP_alt)
             candidate_s[s_key] = loss
-    #print("zero_rate =>", sum(v == 0 for v in candidate_s.values())/len(candidate_s))
-    #print("no_align_rate=>", no_align_cnt/all_align_cnt)
-    #print("top_10=>",list(sorted(AlignedCnt.items(),key=lambda x:-x[1]))[:10])
     return candidate_s
 
 
@@ -129,8 +125,6 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
     # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
     ibm1 = IBMModel1(bitexts, 2)
 
-    #print("sum_t P(t,s)=>",[sum(ibm1.translation_table[tt].values())-ibm1.translation_table[tt][None] for tt in ibm1.translation_table.keys()])
-    #print("sum_s P(t,s)=>",[sum(ibm1.translation_table[tt].values())-ibm1.translation_table[tt][None] for tt in ibm1.translation_table.keys()])
 
     # for each piece x,get words which aligns to x
     #AlignedWords[key1][key2]=val, key1にalignするkey2の数
@@ -175,11 +169,6 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
 
                 loss += val/sum_val*(logP_key - logP_alt)
             candidate_s[s_key] = loss
-    #print("zero_rate=>",sum(v==0 for v in candidate_s.values())/len(candidate_s))
-    # print("no_align_rate=>",no_align_cnt/all_align_cnt)
-    #print("top_10=>",list(sorted(AlignedCnt.items(),key=lambda x:-x[1]))[:10])
-    # for key,val in list(sorted(AlignedCnt.items(),key=lambda x:-x[1]))[:20]:
-    #    print("word:{}->{}".format(key,AlignedWords[key].items()))
     return candidate_s
 
 def prune_step_with_align(U_s,U_t,src_func,tgt_func=None):
@@ -236,11 +225,11 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False):
     # seed_piece
     seed_src = U_src.make_seed()
     #seed_src = U_src.make_seed_sentence_piece()
-    U_src.set_sentnece_piece(seed_src)
+    U_src.set_sentence_piece(seed_src)
 
     seed_tgt = U_tgt.make_seed()
     #seed_tgt = U_tgt.make_seed_sentence_piece()
-    U_tgt.set_sentnece_piece(seed_tgt)
+    U_tgt.set_sentence_piece(seed_tgt)
 
     # Start EM
     print("Seed voc size=> src:{} tgt:{}\nStart EM training".format(U_src.SentencePiece.get_piece_size(),U_tgt.SentencePiece.get_piece_size()))
@@ -257,8 +246,8 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False):
             new_piece_tgt = U_tgt.run_m_step(exp_tgt)
 
             # update
-            U_src.set_sentnece_piece(new_pieces_src)
-            U_tgt.set_sentnece_piece(new_piece_tgt)
+            U_src.set_sentence_piece(new_pieces_src,debug_name="src_step{}_mstep{}".format(step_cnt,itr))
+            U_tgt.set_sentence_piece(new_piece_tgt,debug_name="tgt_step{}_mstep{}".format(step_cnt,itr))
 
             print("EN EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(itr,
                                                                                                  U_src.SentencePiece.get_piece_size(), obj_src, n_token_src, n_token_src/U_src.SentencePiece.get_piece_size()))
@@ -279,8 +268,8 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False):
                 new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss)
 
 
-        U_src.set_sentnece_piece(new_piece_src)
-        U_tgt.set_sentnece_piece(new_piece_tgt)
+        U_src.set_sentence_piece(new_piece_src,debug_name="src_step{}_prune".format(step_cnt))
+        U_tgt.set_sentence_piece(new_piece_tgt,debug_name="src_step{}_prune".format(step_cnt))
 
     print("{} step is needed to converge".format(step_cnt))
     U_src.finalize_sentencepiece()

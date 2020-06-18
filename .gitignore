@@ -6,7 +6,11 @@ testFull
 test50K
 corpus/
 !test/scripts
+
 train_separate/*.vocab
+train_separate/debug
+
 train_with_align/*.vocab
 train_with_align/res_voc
+train_with_align/debug
 

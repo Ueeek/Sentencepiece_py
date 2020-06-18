@@ -6,7 +6,7 @@ class SentencePiece:
         """
         sentencepieces: dict[key:peice_surface,val:piece_score]
         """
-        self.sentencepieces = []
+        self.sentencepieces = None
 
     def _set_sentence_piece(self, pieces):
         """

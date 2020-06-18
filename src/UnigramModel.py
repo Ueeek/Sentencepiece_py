@@ -8,9 +8,12 @@ import pygtrie
 from util import *
 from pysuffixarray.core import SuffixArray
 
+import pickle
 
 import subprocess
 
+
+debug_dir="./debug/"
 
 class UnigramModel:
     """どこまで仕事をするのか
@@ -19,13 +22,14 @@ class UnigramModel:
     def __init__(self, argv):
         """ get parameter from argv
         """
+        self.debug_cnt=0 #あとで消す。debugのfile名を　書き込まれた順にsortするためにfileのprefixに付ける
         self.file = arg_parser(argv,"file",required=True)
         self.out_voc_file = arg_parser(argv,"voc",required=True)
         self.shrinking_rate = arg_parser(argv,"shrinking_rate",default_val=0.75)
         self.desired_voc_size = arg_parser(argv,"shrinking_rate",default_val=8000)
         self.seed_sentence_piece_size = arg_parser(argv,"seed_sentence_piece_size",default_val=1e5)
 
-        self.use_original_make_seed = arg_parser(argv,"use_original_make_seed")
+        self.use_original_make_seed = arg_parser(argv,"use_original_make_seed",default_val=False)
         self.unk_surface=arg_parser(argv,"unk_surface",default_val="⁇")
 
         # original spの"_"の太文字みたいな文字
@@ -47,7 +51,8 @@ class UnigramModel:
             for s in f:
                 key, val = s.split("\t")
                 Voc[key] = float(val)
-        self.set_sentnece_piece(Voc)
+        #self.set_sentnece_piece(Voc)
+        self.set_sentence_piece(Voc,debug_name="seed",info="init_piece")
 
     def load_seed_sentencepiece_from_file(self):
         """c++のsentencepieceのmake_seedを呼び出してvocをとってくる。
@@ -156,21 +161,36 @@ class UnigramModel:
             len(seed_sentencepieces)))
         return seed_sentencepieces
 
-    def set_sentnece_piece(self, pieces):
+    def set_sentence_piece(self, pieces,debug_name=None,info=None):
         """ set piece into Sentencepiece class
         Always call build_trie to create new Trie corresponding to new_pieces
         Args:
             pieces(dict): current sentencepieces dict[piece]=score
         """
+        if debug_name is not None:
+            _, obj_before,_ = self.run_e_step()
+
+            pruned_voc = set(self.SentencePiece.get_pieces().keys() - pieces.keys())
+
+            #pieceの更新
+            self.SentencePiece._set_sentence_piece(pieces)
+            self.build_trie(pieces)
+            ###
+            _, obj_after,_ = self.run_e_step()
+
+            debug_info={"obj_before":obj_before,"obj_after":obj_after,"pruned_voc":pruned_voc,"info":info,"gain":obj_before-obj_after}
+            with open(debug_dir+"{:2}_".format(self.debug_cnt)+debug_name+".pickle","wb") as f:
+                pickle.dump(debug_info,f)
 
         self.SentencePiece._set_sentence_piece(pieces)
         self.build_trie(pieces)
+        self.debug_cnt+=1
 
     def load_sentence(self,path=None):
         """ load sentence from file
         """
         if path is None:
-            path = self.path
+            path = self.file
         sentences = []
         words = defaultdict(int)
         with open(path) as f:
@@ -418,7 +438,8 @@ class UnigramModel:
         """
         self.load_sentence()
         seed_sentencepieces = self.make_seed()
-        self.set_sentnece_piece(seed_sentencepieces)
+        self.set_sentence_piece(seed_sentencepieces)
+        #self.set_sentence_piece(seed_sentencepieces,debug_name="train_start")
 
         step_cnt = 0
         print("init vocab size is {}\n start EM trainind".format(self.SentencePiece.get_piece_size()))
@@ -428,7 +449,7 @@ class UnigramModel:
                 expected, objective, num_tokens = self.run_e_step()
                 new_sentencepieces = self.run_m_step(expected)
 
-                self.set_sentnece_piece(new_sentencepieces)
+                self.set_sentence_piece(new_sentencepieces,debug_name="step{}_mstep{}".format(step_cnt,itr))
 
                 piece_size = self.SentencePiece.get_piece_size()
                 print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(
@@ -437,7 +458,7 @@ class UnigramModel:
             if len(new_sentencepieces) <= self.desired_voc_size:
                 break
             new_sentencepieces = self.prune_piece()
-            self.set_sentnece_piece(new_sentencepieces)
+            self.set_sentence_piece(new_sentencepieces,debug_name="step{}_prune".format(step_cnt))
 
         # Save to file
         print("{} step is needed to converge".format(step_cnt))
@@ -535,13 +556,7 @@ if __name__ == "__main__":
     arg = {
         "file": "../test/dummy2.en",
         "voc": "dummy.en.voc",
-        "shrinking_rate": 0.75,
-        "desired_voc_size": 4000,
         "seed_sentence_piece_size": 1e5
     }
-    # dummy_arg={"src_file":"../test/dummy2.en","src_voc":"../res_voc/dummy2.en.voc"}
-    # dummy_arg={"src_file":"../test/dummy3.en","tgt_file":None}
-    # dummy_arg={"src_file":"../test/dummy.jap"}
-    # dummy_arg={"src_file":"../test/dummy4.en"}
     U = UnigramModel(arg)
     U.train()
