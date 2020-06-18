@@ -26,7 +26,7 @@ class UnigramModel:
         self.seed_sentence_piece_size = argv["seed_sentence_piece_size"]
 
         self.use_original_make_seed = argv["use_original_make_seed"]
-
+        self.unk_surface="⁇"
 
         # original spの"_"の太文字みたいな文字
         self.sep_voc = chr(9601)
@@ -166,15 +166,18 @@ class UnigramModel:
         self.SentencePiece._set_sentence_piece(pieces)
         self.build_trie(pieces)
 
-    def load_sentence(self):
+    def load_sentence(self,path=None):
         """ load sentence from file
         """
+        if path is None:
+            path = self.path
         sentences = []
         words = defaultdict(int)
-        with open(self.file) as f:
+        with open(path) as f:
             for s in f:
                 #originalは半角のみを扱っていたので、半角のみを扱うようにする。
                 # _s = "_"+"_".join(s.split(" "))#全角と半角のspaceを区別するか(\tとか\nもsplitされるs.split())
+                #TODO ここで、lastの"\n"を消すのもあり
                 _s = self.sep_voc + self.sep_voc.join(s.split(" "))
                 for w in s.split(" "):
                     words[self.sep_voc+w] += 1
@@ -462,6 +465,69 @@ class UnigramModel:
         """
         encode_sentences = [self.encode_one_sent(s) for s in self.sentences]
         return encode_sentences
+
+    def encode_new(self,path,voc_file):
+        """
+        pathのぶんをencodeする
+        """
+        #TODO こいつを使えるようにする
+        self.load_sentence(path=path)
+        self.read_sentencenpiece_from_voc_file(voc_file)
+
+        ret=[]
+        with open(path) as f:
+            for s in f:
+                if s[-1]=="\n":
+                    s = s[:-1]
+                encoded_sent = self.encode_one_sent(s)
+                ret.append(encoded_sent)
+        return ret
+
+        
+
+    def decode_one_piece(self,piece:str):
+        """
+        PiecegがvocにないならUNKにする。
+        Arguments:
+            pieceをdecodeする。(UNKに置き換えるやつ)
+        Returns:
+            piece
+        """
+        if piece==" ":
+            return ""
+        if piece in self.SentencePiece.get_pieces().keys():
+            return self.unk_surface
+        else:
+            return piece
+
+    def decode_one_sent(self, s:str)->str:
+        """
+        Arguments:
+            tokenized_sent(str): tokenizeされた文
+        Returns:
+            ret_sent(str): space split tokenize sentence
+        """
+        s = "".join(s.split(" ")) #remove whitespace
+        s = s.replace("\n","")
+        s = s.replace(self.sep_voc," ")
+        if len(s)>0 and s[0]==" ": #remove white space located at the beginning of sent(beggining "_")
+            s=s[1:]
+        return s
+
+    def decode_sent(self,path:str)->list:
+        """
+        Arguments: decodeしたい文のpath
+        """
+        #TODO encodeとinterfaceが違うのが気になること
+        #TODO 1 or 2. 1:encode_sent(path)? 2. decode_sent(),self.sent
+        ret=[]
+
+        with open(path) as f:
+            for s in f:
+                ret.append(self.decode_one_sent(s))
+        return ret
+
+
 
 
 # sample
