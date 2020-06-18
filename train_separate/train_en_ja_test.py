@@ -6,12 +6,10 @@ from UnigramTrainer import Train
 def Train_En():
     print("Train EN")
     arg = {
-        "file": "../corpus/train10K.en",
+        "file": "../corpus/train5K.en",
         "voc": "./separate.en.voc",
-        "shrinking_rate": 0.75,
         "use_original_make_seed":True,
         "desired_voc_size": 4000,
-        "seed_sentence_piece_size": 1e5
     }
     Train(arg)
 
