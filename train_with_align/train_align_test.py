@@ -5,7 +5,7 @@ from UnigramTrainerAlign import train_align
 
 if __name__ == "__main__":
     arg_mini_en = {
-        "file": "../corpus/train50K.en",
+        "file": "../corpus/train5K.en",
         "voc": "./res_voc/dummy.en.voc",
         "use_original_make_seed":True,
     }
@@ -14,4 +14,4 @@ if __name__ == "__main__":
         "voc": "./res_voc/dummy.jap.voc",
         "use_original_make_seed":True,
     }
-    train_align(arg_mini_en,arg_mini_ja,alter=True)
+    train_align(arg_mini_en,arg_mini_ja)

@@ -171,7 +171,7 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
             candidate_s[s_key] = loss
     return candidate_s
 
-def prune_step_with_align(U_s,U_t,src_func,tgt_func=None):
+def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,debug=False):
     """
         引数でどうやってalignlossを計算するかを切り替えたい
     Arguments:
@@ -206,7 +206,32 @@ def prune_step_with_align(U_s,U_t,src_func,tgt_func=None):
         joint_loss_s, new_sentencepieces_s)
     new_piece_t = U_t.prune_4_prune_candidate(
         joint_loss_t, new_sentencepieces_t)
+
+    if debug:
+        piece_debug_s=dict()
+        piece_debug_t=dict()
+        #srcから
+        for key in joint_loss_s.keys():
+            tmp =dict()
+            piece_debug_s["remain"]=dict()
+            piece_debug_s["remove"]=dict()
+            if key in new_piece_s.keys():
+                piece_debug_s["remain"][key]={"LM_loss":LM_loss_s[key],"Align_loss":align_loss_s[key],"Joint_loss":joint_loss_s[key]}
+            else:
+                piece_debug_s["remove"][key]={"LM_loss":LM_loss_s[key],"Align_loss":align_loss_s[key],"Joint_loss":joint_loss_s[key]}
+
+        piece_debug_t["remain"]=dict()
+        piece_debug_t["remove"]=dict()
+        for key in joint_loss_t.keys():
+            if key in new_piece_t.keys():
+                piece_debug_t["remain"][key]={"LM_loss":LM_loss_t[key],"Align_loss":align_loss_t[key],"Joint_loss":joint_loss_t[key]}
+            else:
+                piece_debug_t["remove"][key]={"LM_loss":LM_loss_t[key],"Align_loss":align_loss_t[key],"Joint_loss":joint_loss_t[key]}
+
     assert not(U_s.SentencePiece.get_piece_size()==len(new_piece_s) and U_t.SentencePiece.get_piece_size()==len(new_piece_t)),"no piece is  pruned"
+
+    if debug:
+        return new_piece_s, new_piece_t,piece_debug_s,piece_debug_t
     return new_piece_s, new_piece_t
 
 def train_align(arg_src, arg_tgt, alter=False,allA=False):
@@ -265,9 +290,11 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False):
             if allA:
                 new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss_all_alignment)
             else:
-                new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss)
+                #new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss)
+                new_piece_src, new_piece_tgt,piece_debug_s,piece_debug_t= prune_step_with_align(U_src,U_tgt,alignment_loss,debug=True)
 
-
+        U_src.dump_to_pickle("src_step{}_pruneloss".format(step_cnt),piece_debug_s)
+        U_tgt.dump_to_pickle("src_step{}_pruneloss".format(step_cnt),piece_debug_t)
         U_src.set_sentence_piece(new_piece_src,debug_name="src_step{}_prune".format(step_cnt))
         U_tgt.set_sentence_piece(new_piece_tgt,debug_name="src_step{}_prune".format(step_cnt))
 

@@ -161,6 +161,14 @@ class UnigramModel:
             len(seed_sentencepieces)))
         return seed_sentencepieces
 
+    def dump_to_pickle(self,name,data):
+        """
+        dump data into pickle
+        """
+        with open(debug_dir+"{:2}_".format(self.debug_cnt)+name+".pickle","wb") as f:
+                pickle.dump(data,f)
+
+
     def set_sentence_piece(self, pieces,debug_name=None,info=None):
         """ set piece into Sentencepiece class
         Always call build_trie to create new Trie corresponding to new_pieces
@@ -179,8 +187,7 @@ class UnigramModel:
             _, obj_after,_ = self.run_e_step()
 
             debug_info={"obj_before":obj_before,"obj_after":obj_after,"pruned_voc":pruned_voc,"info":info,"gain":obj_before-obj_after}
-            with open(debug_dir+"{:2}_".format(self.debug_cnt)+debug_name+".pickle","wb") as f:
-                pickle.dump(debug_info,f)
+            self.dump_to_pickle(debug_name,debug_info)
 
         self.SentencePiece._set_sentence_piece(pieces)
         self.build_trie(pieces)
