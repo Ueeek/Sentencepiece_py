@@ -15,6 +15,7 @@ import subprocess
 
 debug_dir="./debug/"
 
+
 class UnigramModel:
     """どこまで仕事をするのか
     """
@@ -176,10 +177,9 @@ class UnigramModel:
             pieces(dict): current sentencepieces dict[piece]=score
         """
         if debug_name is not None:
+            ##LM OBJを求める
             _, obj_before,_ = self.run_e_step()
-
             pruned_voc = set(self.SentencePiece.get_pieces().keys() - pieces.keys())
-
             #pieceの更新
             self.SentencePiece._set_sentence_piece(pieces)
             self.build_trie(pieces)

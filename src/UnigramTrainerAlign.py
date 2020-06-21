@@ -8,6 +8,26 @@ from Lattice import Lattice
 from UnigramModel import UnigramModel
 from collections import defaultdict
 
+def get_alignmentscore_ibm1(U_s,U_t):
+    "P(T,A|S)を計算する"
+    bitexts = get_bitexts(U_s,U_t)
+    ibm1 = IBMModel1(bitexts, 2)#(t->s)のalign
+
+    ret=0
+    for bitext in bitexts:
+        # align=(idx_in_tgt,idx_in_src)
+        tgt, src,align = bitext.words, bitext.mots,bitext.alignment
+        for (tgt_idx,src_idx) in bitext.alignment:
+            if src_idx is None:
+                assert 1==2
+                ret+=log(ibm1.translation_table[tgt[tgt_idx]][None])
+            else:
+                ret+=log(ibm1.translation_table[tgt[tgt_idx]][src[src_idx]])
+    ret/=sum([len(v.alignment) for v in bitexts])
+    return ret
+
+
+
 def get_viterbi_path(s, U):
     """
     Arguments:
@@ -295,8 +315,12 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False):
 
         U_src.dump_to_pickle("src_step{}_pruneloss".format(step_cnt),piece_debug_s)
         U_tgt.dump_to_pickle("src_step{}_pruneloss".format(step_cnt),piece_debug_t)
+        align_score_t_s_before,align_score_s_t_before = get_alignmentscore_ibm1(U_src,U_tgt),get_alignmentscore_ibm1(U_tgt,U_src)
         U_src.set_sentence_piece(new_piece_src,debug_name="src_step{}_prune".format(step_cnt))
         U_tgt.set_sentence_piece(new_piece_tgt,debug_name="src_step{}_prune".format(step_cnt))
+        align_score_t_s_after,align_score_s_t_after = get_alignmentscore_ibm1(U_tgt,U_src),get_alignmentscore_ibm1(U_tgt,U_src)
+        U_src.dump_to_pickle("src_step{}_pruneloss_diff".format(step_cnt),{"algin_before":align_score_s_t_before,"align_after":align_score_s_t_after,"gain":align_score_s_t_after-align_score_s_t_before})
+        U_tgt.dump_to_pickle("tgt_step{}_pruneloss_diff".format(step_cnt),{"algin_before":align_score_t_s_before,"align_after":align_score_t_s_after,"gain":align_score_t_s_after-align_score_t_s_before})
 
     print("{} step is needed to converge".format(step_cnt))
     U_src.finalize_sentencepiece()
