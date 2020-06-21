@@ -182,7 +182,7 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
     #    print("word:{}->{}".format(key,AlignedWords[key].items()))
     return candidate_s
 
-def prune_step_with_align(U_s,U_t,src_func,tgt_func=None):
+def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,alpha=1):
     """
         引数でどうやってalignlossを計算するかを切り替えたい
     Arguments:
@@ -209,9 +209,9 @@ def prune_step_with_align(U_s,U_t,src_func,tgt_func=None):
     joint_loss_s = dict()
     joint_loss_t = dict()
     for key in LM_loss_s.keys():
-        joint_loss_s[key] = LM_loss_s[key]+align_loss_s[key]
+        joint_loss_s[key] = LM_loss_s[key]+alpha*align_loss_s[key]
     for key in LM_loss_t.keys():
-        joint_loss_t[key] = LM_loss_t[key]+align_loss_t[key]
+        joint_loss_t[key] = LM_loss_t[key]+alpha*align_loss_t[key]
 
     new_piece_s = U_s.prune_4_prune_candidate(
         joint_loss_s, new_sentencepieces_s)
@@ -220,11 +220,12 @@ def prune_step_with_align(U_s,U_t,src_func,tgt_func=None):
     assert not(U_s.SentencePiece.get_piece_size()==len(new_piece_s) and U_t.SentencePiece.get_piece_size()==len(new_piece_t)),"no piece is  pruned"
     return new_piece_s, new_piece_t
 
-def train_align(arg_src, arg_tgt, alter=False,allA=False):
+def train_align(arg_src, arg_tgt, alter=False,allA=False,alpha=1):
     """
     Arguments:
         alter(bool): false ならsrcとtgt、同じステップで両方ともpruneでalinを考慮する・
         trueなら、srcとtgtでalignmの考慮を交互にする(隔step)
+        alphaは。alignlossへの重み
     """
     print("Train align")
     U_src = UnigramModel(arg_src)
@@ -276,7 +277,7 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False):
             if allA:
                 new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss_all_alignment)
             else:
-                new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss)
+                new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss,alpha=alpha)
 
 
         U_src.set_sentnece_piece(new_piece_src)

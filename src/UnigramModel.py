@@ -170,7 +170,7 @@ class UnigramModel:
         """ load sentence from file
         """
         if path is None:
-            path = self.path
+            path = self.file
         sentences = []
         words = defaultdict(int)
         with open(path) as f:
