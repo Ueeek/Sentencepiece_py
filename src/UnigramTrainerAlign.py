@@ -191,13 +191,16 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
             candidate_s[s_key] = loss
     return candidate_s
 
-def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,debug=False):
+def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,debug=False,alpha=0.5):
     """
-        引数でどうやってalignlossを計算するかを切り替えたい
+        引数でどうやってalignlossを計算するかを切り替えた
     Arguments:
         src_func: U_sのalign lossを計算する関数
         tgt_func:　src_funcを同様。Noneなら、src_funcと同じものとする
     """
+
+    assert 0<=alpha<=1
+
     if tgt_func is None:
         tgt_func = src_func
 
@@ -218,9 +221,9 @@ def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,debug=False):
     joint_loss_s = dict()
     joint_loss_t = dict()
     for key in LM_loss_s.keys():
-        joint_loss_s[key] = LM_loss_s[key]+align_loss_s[key]
+        joint_loss_s[key] = (1-alpha)*LM_loss_s[key]+alpha*align_loss_s[key]
     for key in LM_loss_t.keys():
-        joint_loss_t[key] = LM_loss_t[key]+align_loss_t[key]
+        joint_loss_t[key] = (1-alpha)*LM_loss_t[key]+alpha*align_loss_t[key]
 
     new_piece_s = U_s.prune_4_prune_candidate(
         joint_loss_s, new_sentencepieces_s)
@@ -254,7 +257,7 @@ def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,debug=False):
         return new_piece_s, new_piece_t,piece_debug_s,piece_debug_t
     return new_piece_s, new_piece_t
 
-def train_align(arg_src, arg_tgt, alter=False,allA=False):
+def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.5):
     """
     Arguments:
         alter(bool): false ならsrcとtgt、同じステップで両方ともpruneでalinを考慮する・
@@ -269,11 +272,9 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False):
     U_tgt.load_sentence()
     # seed_piece
     seed_src = U_src.make_seed()
-    #seed_src = U_src.make_seed_sentence_piece()
     U_src.set_sentence_piece(seed_src)
 
     seed_tgt = U_tgt.make_seed()
-    #seed_tgt = U_tgt.make_seed_sentence_piece()
     U_tgt.set_sentence_piece(seed_tgt)
 
     # Start EM
@@ -291,8 +292,12 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False):
             new_piece_tgt = U_tgt.run_m_step(exp_tgt)
 
             # update
-            U_src.set_sentence_piece(new_pieces_src,debug_name="src_step{}_mstep{}".format(step_cnt,itr))
-            U_tgt.set_sentence_piece(new_piece_tgt,debug_name="tgt_step{}_mstep{}".format(step_cnt,itr))
+            if debug:
+                U_src.set_sentence_piece(new_pieces_src,debug_name="src_step{}_mstep{}".format(step_cnt,itr))
+                U_tgt.set_sentence_piece(new_piece_tgt,debug_name="tgt_step{}_mstep{}".format(step_cnt,itr))
+            else:
+                U_src.set_sentence_piece(new_pieces_src)
+                U_tgt.set_sentence_piece(new_piece_tgt)
 
             print("EN EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(itr,
                                                                                                  U_src.SentencePiece.get_piece_size(), obj_src, n_token_src, n_token_src/U_src.SentencePiece.get_piece_size()))
@@ -311,16 +316,24 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False):
                 new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss_all_alignment)
             else:
                 #new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss)
-                new_piece_src, new_piece_tgt,piece_debug_s,piece_debug_t= prune_step_with_align(U_src,U_tgt,alignment_loss,debug=True)
+                if debug:
+                    new_piece_src, new_piece_tgt,piece_debug_s,piece_debug_t= prune_step_with_align(U_src,U_tgt,alignment_loss,debug=True,alpha=alpha)
+                else:
+                    new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss,alpha=alpha)
 
-        U_src.dump_to_pickle("src_step{}_pruneloss".format(step_cnt),piece_debug_s)
-        U_tgt.dump_to_pickle("src_step{}_pruneloss".format(step_cnt),piece_debug_t)
-        align_score_t_s_before,align_score_s_t_before = get_alignmentscore_ibm1(U_src,U_tgt),get_alignmentscore_ibm1(U_tgt,U_src)
-        U_src.set_sentence_piece(new_piece_src,debug_name="src_step{}_prune".format(step_cnt))
-        U_tgt.set_sentence_piece(new_piece_tgt,debug_name="src_step{}_prune".format(step_cnt))
-        align_score_t_s_after,align_score_s_t_after = get_alignmentscore_ibm1(U_tgt,U_src),get_alignmentscore_ibm1(U_tgt,U_src)
-        U_src.dump_to_pickle("src_step{}_pruneloss_diff".format(step_cnt),{"algin_before":align_score_s_t_before,"align_after":align_score_s_t_after,"gain":align_score_s_t_after-align_score_s_t_before})
-        U_tgt.dump_to_pickle("tgt_step{}_pruneloss_diff".format(step_cnt),{"algin_before":align_score_t_s_before,"align_after":align_score_t_s_after,"gain":align_score_t_s_after-align_score_t_s_before})
+        if debug:
+            U_src.dump_to_pickle("src_step{}_pruneloss".format(step_cnt),piece_debug_s)
+            U_tgt.dump_to_pickle("src_step{}_pruneloss".format(step_cnt),piece_debug_t)
+
+            align_score_t_s_before,align_score_s_t_before = get_alignmentscore_ibm1(U_src,U_tgt),get_alignmentscore_ibm1(U_tgt,U_src)
+            U_src.set_sentence_piece(new_piece_src,debug_name="src_step{}_prune".format(step_cnt))
+            U_tgt.set_sentence_piece(new_piece_tgt,debug_name="src_step{}_prune".format(step_cnt))
+            align_score_t_s_after,align_score_s_t_after = get_alignmentscore_ibm1(U_tgt,U_src),get_alignmentscore_ibm1(U_tgt,U_src)
+            U_src.dump_to_pickle("src_step{}_pruneloss_diff".format(step_cnt),{"algin_before":align_score_s_t_before,"align_after":align_score_s_t_after,"gain":align_score_s_t_after-align_score_s_t_before})
+            U_tgt.dump_to_pickle("tgt_step{}_pruneloss_diff".format(step_cnt),{"algin_before":align_score_t_s_before,"align_after":align_score_t_s_after,"gain":align_score_t_s_after-align_score_t_s_before})
+        else:
+            U_src.set_sentence_piece(new_piece_src)
+            U_tgt.set_sentence_piece(new_piece_tgt)
 
     print("{} step is needed to converge".format(step_cnt))
     U_src.finalize_sentencepiece()

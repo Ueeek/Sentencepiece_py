@@ -27,7 +27,7 @@ class UnigramModel:
         self.file = arg_parser(argv,"file",required=True)
         self.out_voc_file = arg_parser(argv,"voc",required=True)
         self.shrinking_rate = arg_parser(argv,"shrinking_rate",default_val=0.75)
-        self.desired_voc_size = arg_parser(argv,"shrinking_rate",default_val=8000)
+        self.desired_voc_size = arg_parser(argv,"desired_voc_size",default_val=8000)
         self.seed_sentence_piece_size = arg_parser(argv,"seed_sentence_piece_size",default_val=1e5)
 
         self.use_original_make_seed = arg_parser(argv,"use_original_make_seed",default_val=False)
@@ -36,6 +36,7 @@ class UnigramModel:
         # original spの"_"の太文字みたいな文字
         self.sep_voc = arg_parser(argv,"sep_voc",default_val=chr(9601))
 
+        self.debug = arg_parser(argv,"debug",default_val=False)
         self.SentencePiece = SentencePiece()
         self.Trie = None
         self.sentences = []
@@ -53,7 +54,10 @@ class UnigramModel:
                 key, val = s.split("\t")
                 Voc[key] = float(val)
         #self.set_sentnece_piece(Voc)
-        self.set_sentence_piece(Voc,debug_name="seed",info="init_piece")
+        if self.debug:
+            self.set_sentence_piece(Voc,debug_name="seed",info="init_piece")
+        else:
+            self.set_sentence_piece(Voc)
 
     def load_seed_sentencepiece_from_file(self):
         """c++のsentencepieceのmake_seedを呼び出してvocをとってくる。
@@ -176,7 +180,7 @@ class UnigramModel:
         Args:
             pieces(dict): current sentencepieces dict[piece]=score
         """
-        if debug_name is not None:
+        if self.debug and self.SentencePiece.get_pieces() is not None:
             ##LM OBJを求める
             _, obj_before,_ = self.run_e_step()
             pruned_voc = set(self.SentencePiece.get_pieces().keys() - pieces.keys())
@@ -188,10 +192,10 @@ class UnigramModel:
 
             debug_info={"obj_before":obj_before,"obj_after":obj_after,"pruned_voc":pruned_voc,"info":info,"gain":obj_before-obj_after}
             self.dump_to_pickle(debug_name,debug_info)
+            self.debug_cnt+=1
 
         self.SentencePiece._set_sentence_piece(pieces)
         self.build_trie(pieces)
-        self.debug_cnt+=1
 
     def load_sentence(self,path=None):
         """ load sentence from file
@@ -456,7 +460,10 @@ class UnigramModel:
                 expected, objective, num_tokens = self.run_e_step()
                 new_sentencepieces = self.run_m_step(expected)
 
-                self.set_sentence_piece(new_sentencepieces,debug_name="step{}_mstep{}".format(step_cnt,itr))
+                if self.debug:
+                    self.set_sentence_piece(new_sentencepieces,debug_name="step{}_mstep{}".format(step_cnt,itr))
+                else:
+                    self.set_sentence_piece(new_sentencepieces)
 
                 piece_size = self.SentencePiece.get_piece_size()
                 print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(
@@ -465,7 +472,11 @@ class UnigramModel:
             if len(new_sentencepieces) <= self.desired_voc_size:
                 break
             new_sentencepieces = self.prune_piece()
-            self.set_sentence_piece(new_sentencepieces,debug_name="step{}_prune".format(step_cnt))
+            if self.debug:
+                self.set_sentence_piece(new_sentencepieces,debug_name="step{}_prune".format(step_cnt))
+            else:
+                self.set_sentence_piece(new_sentencepieces)
+
 
         # Save to file
         print("{} step is needed to converge".format(step_cnt))
