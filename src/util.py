@@ -60,3 +60,15 @@ def isValidSentencePiece(sb:str)->bool:
         if isValidCodepoint(c):
             return False
         #originalはunicode平仮名、katakanaをhanに変換してる
+
+def arg_parser(args,key,default_val=None,required=False):
+    """
+    argsのなかにkeyがあるならその値をないならdefaultの値をreturnする。
+
+    default_val: if not specified, None is set
+    """
+    if key in args.keys():
+        return args[key]
+    else:
+        assert required==False,"arg ::{}:: is requiread"
+        return default_val
