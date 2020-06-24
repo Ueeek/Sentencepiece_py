@@ -193,8 +193,8 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
 
 def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,debug=False,alpha=0.5):
     """
-        引数でどうやってalignlossを計算するかを切り替えた
     Arguments:
+        alpha: (1-alpha)*LM_loss + alpha*align_loss
         src_func: U_sのalign lossを計算する関数
         tgt_func:　src_funcを同様。Noneなら、src_funcと同じものとする
     """
