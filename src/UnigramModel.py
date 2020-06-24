@@ -17,32 +17,41 @@ debug_dir="./debug/"
 
 
 class UnigramModel:
-    """どこまで仕事をするのか
+    """
     """
 
     def __init__(self, argv):
         """ get parameter from argv
         """
-        self.debug_cnt=0 #あとで消す。debugのfile名を　書き込まれた順にsortするためにfileのprefixに付ける
+        #from argv
         self.file = arg_parser(argv,"file",required=True)
+
         self.out_voc_file = arg_parser(argv,"voc",required=True)
         self.shrinking_rate = arg_parser(argv,"shrinking_rate",default_val=0.75)
-        self.desired_voc_size = arg_parser(argv,"desired_voc_size",default_val=8000)
+        self.vocab_size = arg_parser(argv,"vocab_size",default_val=8000,required=True)
+        self.desired_voc_size = int(self.vocab_size*1.1)
         self.seed_sentence_piece_size = arg_parser(argv,"seed_sentence_piece_size",default_val=1e5)
 
         self.use_original_make_seed = arg_parser(argv,"use_original_make_seed",default_val=False)
         self.unk_surface=arg_parser(argv,"unk_surface",default_val="⁇")
+        self.character_coverage = arg_parser(argv,"character_coverage",default_val=1)
 
         # original spの"_"の太文字みたいな文字
         self.sep_voc = arg_parser(argv,"sep_voc",default_val=chr(9601))
 
         self.debug = arg_parser(argv,"debug",default_val=False)
+        # Merge all sentences into one array with 0x0000 delimiter
+        self.kSentenceBoundary = arg_parser(argv,"kSentenceBoundary",default_val=chr(0x0000))
+
+
+        self.debug_cnt=0
         self.SentencePiece = SentencePiece()
         self.Trie = None
         self.sentences = []
         self.words = []
+        self.requred_chars=dict()
 
-    def read_sentencenpiece_from_voc_file(self, path):
+    def read_sentencenpiece_from_voc_file(self, path:str):
         """
         trained vocからsentencepiceを読み取って、モデルにセットする
         Arguments:
@@ -59,7 +68,7 @@ class UnigramModel:
         else:
             self.set_sentence_piece(Voc)
 
-    def load_seed_sentencepiece_from_file(self):
+    def load_seed_sentencepiece_from_file(self)->dict:
         """c++のsentencepieceのmake_seedを呼び出してvocをとってくる。
         unigram_model_trainer.c++のEM前で、seed_pieceを求めた後に、fileに SaveVocab()と似た感じで、fileに書き込んで終了している。
         EMに入る前で止めている。
@@ -71,12 +80,9 @@ class UnigramModel:
         else:
             print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
             try:
-                res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size)])
-                print("res=>",res)
+                res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
             except:
-                print("error")
                 exit()
-            print(res)
 
         Voc={}
         with open(f_name+".seed.vocab") as f:
@@ -95,20 +101,16 @@ class UnigramModel:
         all_chars = defaultdict(int)
         array = []
 
-        # Merge all sentences into one array with 0x0000 delimiter
-        kSentenceBoundary = chr(0x0000)
 
         for (word, freq) in self.words.items():
             # ここでpretolenizeってのをかましている
             for c in word:
-                uni_c = UTF8ToUnicodeText(c)
-                c = UnicodeCharToUTF8(uni_c)
+                assert c == UnicodeCharToUTF8(UTF8ToUnicodeText(c))
                 assert isValidCodepoint(c),"isValidCodepoint {}".format(c)
                 assert c!=0x0020,"space must not be included"
-                if c==kSentenceBoundary:
+                if c== self.kSentenceBoundary:
                     print("Find null char")
                     continue
-                # really needed?
                 array.append(c)
                 all_chars[c] += freq
             array.append(kSentenceBoundary)
@@ -199,23 +201,45 @@ class UnigramModel:
 
     def load_sentence(self,path=None):
         """ load sentence from file
+        引数のpathはdecodeとかencodeの時に使う
         """
         if path is None:
             path = self.file
+
         sentences = []
         words = defaultdict(int)
+        chars=defaultdict(int)
         with open(path) as f:
             for s in f:
                 #originalは半角のみを扱っていたので、半角のみを扱うようにする。
                 # _s = "_"+"_".join(s.split(" "))#全角と半角のspaceを区別するか(\tとか\nもsplitされるs.split())
-                #TODO ここで、lastの"\n"を消すのもあり
+                s = s.replace("\n","")#\nを消す感じ
                 _s = self.sep_voc + self.sep_voc.join(s.split(" "))
                 for w in s.split(" "):
                     words[self.sep_voc+w] += 1
+                    for c in w:
+                        chars[c]+=1
                 sentences.append(_s)
 
         self.sentences = sentences
         self.words = words
+
+        #determines required_chars which must be included in the vocabulary
+        accumulated_chars_count=0
+        all_chars_count = sum(chars.values())
+        for key,val in sorted(chars.items(),key=lambda x:-x[1]):
+            coverage = accumulated_chars_count/all_chars_count
+            if coverage>=self.character_coverage:
+                break
+            accumulated_chars_count+=val
+            assert key!=chr(0x0020),"space must not be included"
+            assert key!="\t","tab must not be included"
+            self.requred_chars[key]=val
+
+        print("Alphabet size=>",len(self.requred_chars))
+        print("Final character cpverage=>",accumulated_chars_count/all_chars_count)
+                
+        assert self.character_coverage==1,"unk 処理 is not implemented at load sentences #TODO"
 
     def run_e_step(self):
         """E step of EM learning
@@ -224,7 +248,6 @@ class UnigramModel:
             nun_token(int): sum of the token num of Viterbi path
             expected(dict): dict[piece]=score of the piece
         """
-        # TODO とりあえず のみ
         expected = defaultdict(int)
         objective = 0
         num_tokens = 0
@@ -262,9 +285,10 @@ class UnigramModel:
             freq = expected[key]
             if freq==0:
                 #seed pieceをoriginalから持ってきている場合、expected[piece]がない場合(default dicなので0)になることがある。skipする
-                print("cntinue at m step {}".format(key))
+                print("skip zero freq")
 
             if freq < kExpectedFrequencyThreshold:
+                #print("remove m key:{} score:{}".format(key,expected[key]))
                 continue
             new_pieces[key] = freq
             sum_freq += freq
@@ -274,6 +298,7 @@ class UnigramModel:
         logsum = Digamma(sum_freq)
         for key, val in new_pieces.items():
             new_pieces[key] = Digamma(val)-logsum
+
         return new_pieces
 
     def prune_step_1_always_keep_alternative(self):
@@ -304,6 +329,7 @@ class UnigramModel:
                 always_keep[key] = True
                 alternatives[key] = nbests[1]
 
+        #print("alt=>",alternatives)
         return always_keep, alternatives
 
     def prune_step_2_freq_inverted(self):
@@ -330,16 +356,6 @@ class UnigramModel:
                 inverted[word] += score
 
             # remove this
-            for node_id in L.Viterbi():
-                word = L.nodes[node_id].piece
-                if node_id > 0:
-                    # TODO what is difference of freq and inverted
-                    #freq[word] += score
-                    # inverted[word]+=score
-                    pass
-                else:
-                    print("prune2=>", word)
-
         return vsum, freq, inverted
 
     def prune_step_3_new_piece_cand(self, always_keep, alternatives, vsum, freq, inverted):
@@ -351,8 +367,10 @@ class UnigramModel:
         sum_freq = sum(freq.values())
         logsum = log(sum_freq)
 
+
         candidate = dict()
         new_sentencepieces = dict()
+
 
         for key, val in self.SentencePiece.get_pieces().items():
             if freq[key] == 0 or not always_keep[key]:
@@ -361,46 +379,52 @@ class UnigramModel:
                 new_sentencepieces[key] = val
             else:
                 F = inverted[key]
+                F= freq[key]
+                assert inverted[key]==freq[key]
                 F /= vsum  # keyが出てくる文の数を全文数で割ったもの
                 # keyの出現確率( P(x)= \frac{freq_x}{sum(all_piece_freq)})
                 logprob_sp = log(freq[key])-logsum
                 # x->x_altに置換後の log(freq_sum)
-                logsum_alt = log(sum_freq+freq[key]*(len(alternatives)-1))
+                logsum_alt = log(sum_freq+freq[key]*(self.SentencePiece.get_piece_size()-1))
+
+
 
                 logprob_alt = 0
                 for alt in alternatives[key]:
-                    logprob_alt += (log(freq[alt]+freq[key])-logsum_alt)
+                    logprob_alt += log(freq[alt]+freq[key])-logsum_alt
 
                 # Freq*(logp(x)-logp(x_alts))
                 #(P(X)よりP(x_alt)の方が高いとき、logp(x)= -大 logp(x_alt)=-小->loss=-大
                 #P(x)が小さい場合->pieceを分けた方がいい。
                 loss = F*(logprob_sp-logprob_alt)
-                candidate[key] = loss
+
 
         return candidate, new_sentencepieces
 
-    def prune_4_prune_candidate(self, candidate, new_sentencepieces):
+    def prune_step_4_prune_candidate(self, candidate, new_sentencepieces):
         """
         Return
             candidate(dict): dict[key] = loss of key
             new_sentencepieces(dict):
         """
         assert  len(new_sentencepieces)<=self.desired_voc_size,"{}".format(len(new_sentencepieces))
+
         current_piece = self.SentencePiece.get_pieces()
-        pruned_size = max(
-            int(len(current_piece)*self.shrinking_rate), self.desired_voc_size)
+        pruned_size =\
+                max(int(len(current_piece)*self.shrinking_rate), self.desired_voc_size)
 
         candidate_list = [(key, val) for key, val in candidate.items()]
         #for piece, _ in sorted(candidate_list, key=lambda x: x[1], reverse=True):
         #lossはp(x)<p(x_alt)の時に、-大(xを分割したいとき),逆に loss=が大きい時は、p(x)を残した方がいいとき。よって、sorted(reverse)
-        for piece, _ in sorted(candidate_list, key=lambda x: x[1], reverse=True):
+
+        for piece, score in sorted(candidate_list, key=lambda x: x[1], reverse=True):
             # add piece from candidate in decsengind order of score till piece size reaches to pruned_size
+            #assert len(new_sentencepieces)>=pruned_size,"remove this code"
             if len(new_sentencepieces) == pruned_size:
                 break
             new_sentencepieces[piece] = current_piece[piece]
-        print("prune step {} pieces are pruned".format(
-            len(current_piece) - len(new_sentencepieces)))
         #assert len(current_piece)==len(new_sentencepieces),"no piece is  pruned"
+
         return new_sentencepieces
 
     def prune_piece(self):
@@ -412,7 +436,7 @@ class UnigramModel:
         candidate, new_sentencepieces = self.prune_step_3_new_piece_cand(
             always_keep, alternatives, vsum, freq, inverted)
         # Forth,
-        new_sentencepieces = self.prune_4_prune_candidate(
+        new_sentencepieces = self.prune_step_4_prune_candidate(
             candidate, new_sentencepieces)
 
         assert self.SentencePiece.get_piece_size()!=len(new_sentencepieces),"no piece is  pruned"
@@ -421,13 +445,42 @@ class UnigramModel:
     def finalize_sentencepiece(self):
         """最終的な処理
         fileへの書き込みをする
+        "vocab_size*1.1のpieceが入ってくるので、vocabsizeまで削るはず
         """
         print("finally, {} pieces".format(self.SentencePiece.get_piece_size()))
+
+        ##確定処理
+        final_piece = dict()
+
+        min_score_penalty = 0.0
+        kMinScorePenaltyDelta = 0.0001
+
+        pieces = self.SentencePiece.get_pieces()
+        for key,val in sorted(self.requred_chars.items(),key=lambda x:-x[1]):
+            if key in pieces.keys():
+                final_piece[key]=pieces[key]
+            else:
+                final_piece[key] = min(pieces.values())+min_score_penalty
+                min_score_penalty+=kMinScorePenaltyDelta
+
+        for  key,val in sorted(pieces.items(),key=lambda x:-x[1]):
+            if key in final_piece.keys():
+                continue
+            if len(final_piece)==self.vocab_size:
+                break
+            final_piece[key]=val
+
+
+        self.set_sentence_piece(final_piece)
+        #required charをどっかで作っているはず#trainer_interface.cc の LoadSentenceの下の方でやってる
+        #write out to file
         piece = self.SentencePiece.get_pieces()
         with open(self.out_voc_file, "w") as f:
             for key, val in sorted(piece.items(), key=lambda x: -x[1]):
                 f.write("{}\t{}\n".format(key, val))
+        print("finalized vocab size=>",len(piece))
         print("written voc to {}".format(self.out_voc_file))
+        #print(self.requred_chars.keys())
 
     def build_trie(self, pieces):
         """ building Trie from piece
@@ -437,7 +490,11 @@ class UnigramModel:
             Trie[key] = (key, score)
         self.Trie = Trie
 
-    def make_seed(self):
+    def make_seed(self)->dict:
+        """
+        self.use_original_make_seed=Trueならoriginal spm_trainで作る
+        else: myimpoleで作る(myimpleを使う意味はない
+        """
         if self.use_original_make_seed:
             seed_sentencepieces = self.load_seed_sentencepiece_from_file()
         else:
@@ -455,9 +512,11 @@ class UnigramModel:
         step_cnt = 0
         print("init vocab size is {}\n start EM trainind".format(self.SentencePiece.get_piece_size()))
         while True:
+
             step_cnt += 1
             for itr in range(2):  # EM iteration loop
                 expected, objective, num_tokens = self.run_e_step()
+                #print("expected=>",list(sorted(expected.items(),key=lambda x:x[1],reverse=True)))
                 new_sentencepieces = self.run_m_step(expected)
 
                 if self.debug:
@@ -469,7 +528,7 @@ class UnigramModel:
                 print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(
                     itr, piece_size, objective, num_tokens, num_tokens/piece_size))
 
-            if len(new_sentencepieces) <= self.desired_voc_size:
+            if self.SentencePiece.get_piece_size() <= self.desired_voc_size:
                 break
             new_sentencepieces = self.prune_piece()
             if self.debug:

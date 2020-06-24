@@ -23,7 +23,7 @@ class Node:
         self.pos = None
         self.length = None
         self.node_id = None
-        self.is_vocab = None
+        self.vocab_type = None
         self.score = None
         self.backtrace_score = 0
         self.prev = None
@@ -78,7 +78,7 @@ class Lattice:
 
         # set bos node to this Lattice
         bos = Node()
-        bos.is_vocab = False
+        bos.is_vocab = "bos"
         bos.pos = 0
         bos.node_id = len(self.nodes)
         bos.piece = ("_bos")
@@ -90,7 +90,7 @@ class Lattice:
         # set eos node to this Lattice
         eos = Node()
         eos.node_id = len(self.nodes)
-        eos.is_vocab = False
+        eos.vocab_type = "eos"
         eos.pos = self.size
         eos.piece = "_eos_"
         eos.score = 0
@@ -98,7 +98,7 @@ class Lattice:
         self.begin_nodes_[self.size].append(eos.node_id)
         self.nodes[eos.node_id] = eos
 
-    def insert_node(self, pos: int, piece: str, is_vocab: bool, score: int):
+    def insert_node(self, pos: int, piece: str, vocab_type: bool, score: int):
         """ insert node into Lattice
         """
 
@@ -109,7 +109,7 @@ class Lattice:
         node.length = len(piece)
         node.node_id = len(self.nodes)
         node.score = score
-        node.is_vocab = is_vocab
+        node.vocab_type = vocab_type
 
         # set to Lattice
         self.nodes[node.node_id] = node
@@ -130,13 +130,13 @@ class Lattice:
             common_prefixes= [v[1] for v in Trie.prefixes(self.surfaces[begin_pos])]
             for (key, score) in common_prefixes:
                 assert score==pieces[key]
-                self.insert_node(begin_pos, key, True, score)
+                self.insert_node(begin_pos, key, "vocab", score)
 
             # not contain single char in the common_prefixes
             if all(len(v[0]) != 1 for v in common_prefixes):
                 # TODO UNK IDの処理ができてない 怪しめ
                 self.insert_node(
-                    begin_pos, self.surfaces[begin_pos][0], False,UNK_score)
+                    begin_pos, self.surfaces[begin_pos][0], "unk",UNK_score)
 
     def populate_marginal(self, freq: int) -> (int, dict):
         """ calculate Marginal Probability
@@ -169,7 +169,7 @@ class Lattice:
         for pos in range(self.size):
             for node_id in self.begin_nodes_[pos]:
                 piece = self.nodes[node_id].piece
-                if not self.nodes[node_id].is_vocab:  # node is eos or bos
+                if not self.nodes[node_id].vocab_type=="vocab":  # node is eos or bos
                     continue  # id
                 expected[piece] += freq*exp(forward_accm[node_id] +
                                             self.nodes[node_id].score+backward_accm[node_id]-Z)
@@ -333,7 +333,13 @@ class Lattice:
             for res in result_node_ids:
                 tmp = []
                 for node_id in res:
-                    tmp.append(self.nodes[node_id].piece)
+                    piece_node = self.nodes[node_id]
+                    if piece_node.vocab_type=="vocab":
+                        tmp.append(piece_node.piece)
+                    elif piece_node.vocab_type=="unk":
+                        tmp.append(chr(9601))
+                    else:
+                        assert 1==2,piece_node.vocab_type
                 result_node_piece.append(tmp)
             assert len(result_node_piece) == len(result_node_ids) and all(
                 len(v) == len(u) for v, u in zip(result_node_ids, result_node_piece))
@@ -346,7 +352,7 @@ class Lattice:
     def pieces_in_lattice(self):
         """latticeにあるnodeのpieceを全てlistにして返す
         """
-        return [node.piece for node in self.nodes.values() if node.is_vocab]
+        return [node.piece for node in self.nodes.values() if node.vocab_type=="vocab"]
 
     def __debug_begin_nodes(self):
         """ function for debug
