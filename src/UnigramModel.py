@@ -23,22 +23,19 @@ class UnigramModel:
     def __init__(self, argv):
         """ get parameter from argv
         """
+        if "help" in argv.keys():
+            self.print_arg_help()
         #from argv
         self.file = arg_parser(argv,"file",required=True)
-
         self.out_voc_file = arg_parser(argv,"voc",required=True)
         self.shrinking_rate = arg_parser(argv,"shrinking_rate",default_val=0.75)
         self.vocab_size = arg_parser(argv,"vocab_size",default_val=8000,required=True)
-        self.desired_voc_size = int(self.vocab_size*1.1)
         self.seed_sentence_piece_size = arg_parser(argv,"seed_sentence_piece_size",default_val=1e5)
-
         self.use_original_make_seed = arg_parser(argv,"use_original_make_seed",default_val=False)
         self.unk_surface=arg_parser(argv,"unk_surface",default_val="⁇")
         self.character_coverage = arg_parser(argv,"character_coverage",default_val=1)
-
         # original spの"_"の太文字みたいな文字
         self.sep_voc = arg_parser(argv,"sep_voc",default_val=chr(9601))
-
         self.debug = arg_parser(argv,"debug",default_val=False)
         # Merge all sentences into one array with 0x0000 delimiter
         self.kSentenceBoundary = arg_parser(argv,"kSentenceBoundary",default_val=chr(0x0000))
@@ -49,7 +46,23 @@ class UnigramModel:
         self.Trie = None
         self.sentences = []
         self.words = []
-        self.requred_chars=dict()
+        self.desired_voc_size = int(self.vocab_size*1.1)
+        self.required_chars=dict()
+
+        print("argv")
+        for key,val in argv.items():
+            print("key:{} => {}".format(key,val))
+
+
+    def print_arg_help(self):
+        print("file: corpus path: required")
+        print("voc: output vocablary file path: required")
+        print("shirinking rate: shrinking rate in prune step: default 0.75")
+        print("vocab_size: final vocabulary size : default 8000")
+        print("seed_sentence_piece_size: default 1e5")
+        print("use original_make_seed: if False, call spm_train and get seed piece")
+        print("debug: if True, create pickle file")
+
 
     def read_sentencenpiece_from_voc_file(self, path:str):
         """
@@ -224,7 +237,7 @@ class UnigramModel:
         self.sentences = sentences
         self.words = words
 
-        #determines required_chars which must be included in the vocabulary
+        #determines uequired_chars which must be included in the vocabulary
         accumulated_chars_count=0
         all_chars_count = sum(chars.values())
         for key,val in sorted(chars.items(),key=lambda x:-x[1]):
@@ -234,9 +247,9 @@ class UnigramModel:
             accumulated_chars_count+=val
             assert key!=chr(0x0020),"space must not be included"
             assert key!="\t","tab must not be included"
-            self.requred_chars[key]=val
+            self.required_chars[key]=val
 
-        print("Alphabet size=>",len(self.requred_chars))
+        print("Alphabet size=>",len(self.required_chars))
         print("Final character cpverage=>",accumulated_chars_count/all_chars_count)
                 
         assert self.character_coverage==1,"unk 処理 is not implemented at load sentences #TODO"
@@ -292,7 +305,7 @@ class UnigramModel:
                 continue
             new_pieces[key] = freq
             sum_freq += freq
-        print("M stel filtered infrequent sentencepiece, {} pieces removed".format(
+        print("M step filtered infrequent sentencepiece, {} pieces removed".format(
             self.SentencePiece.get_piece_size()-len(new_pieces)))
 
         logsum = Digamma(sum_freq)
@@ -387,8 +400,6 @@ class UnigramModel:
                 # x->x_altに置換後の log(freq_sum)
                 logsum_alt = log(sum_freq+freq[key]*(self.SentencePiece.get_piece_size()-1))
 
-
-
                 logprob_alt = 0
                 for alt in alternatives[key]:
                     logprob_alt += log(freq[alt]+freq[key])-logsum_alt
@@ -397,6 +408,7 @@ class UnigramModel:
                 #(P(X)よりP(x_alt)の方が高いとき、logp(x)= -大 logp(x_alt)=-小->loss=-大
                 #P(x)が小さい場合->pieceを分けた方がいい。
                 loss = F*(logprob_sp-logprob_alt)
+                candidate[key]=loss
 
 
         return candidate, new_sentencepieces
@@ -440,6 +452,7 @@ class UnigramModel:
             candidate, new_sentencepieces)
 
         assert self.SentencePiece.get_piece_size()!=len(new_sentencepieces),"no piece is  pruned"
+        print("pruned {} pieces".format(self.SentencePiece.get_piece_size()-len(new_sentencepieces)))
         return new_sentencepieces
 
     def finalize_sentencepiece(self):
@@ -447,7 +460,6 @@ class UnigramModel:
         fileへの書き込みをする
         "vocab_size*1.1のpieceが入ってくるので、vocabsizeまで削るはず
         """
-        print("finally, {} pieces".format(self.SentencePiece.get_piece_size()))
 
         ##確定処理
         final_piece = dict()
@@ -456,7 +468,7 @@ class UnigramModel:
         kMinScorePenaltyDelta = 0.0001
 
         pieces = self.SentencePiece.get_pieces()
-        for key,val in sorted(self.requred_chars.items(),key=lambda x:-x[1]):
+        for key,val in sorted(self.required_chars.items(),key=lambda x:-x[1]):
             if key in pieces.keys():
                 final_piece[key]=pieces[key]
             else:
@@ -480,7 +492,6 @@ class UnigramModel:
                 f.write("{}\t{}\n".format(key, val))
         print("finalized vocab size=>",len(piece))
         print("written voc to {}".format(self.out_voc_file))
-        #print(self.requred_chars.keys())
 
     def build_trie(self, pieces):
         """ building Trie from piece
@@ -516,7 +527,6 @@ class UnigramModel:
             step_cnt += 1
             for itr in range(2):  # EM iteration loop
                 expected, objective, num_tokens = self.run_e_step()
-                #print("expected=>",list(sorted(expected.items(),key=lambda x:x[1],reverse=True)))
                 new_sentencepieces = self.run_m_step(expected)
 
                 if self.debug:

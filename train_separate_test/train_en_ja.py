@@ -6,11 +6,11 @@ from UnigramTrainer import Train
 def Train_En():
     print("Train EN")
     arg = {
-        "file": "../corpus/train5K.en",
+        "file": "../corpus/train50K.en",
         "voc": "./separate.en.voc",
         "use_original_make_seed":True,
         "shrinking_rate": 0.75,
-        "vocab_size":4000,
+        "vocab_size":8000,
         "seed_sentence_piece_size": 1e5
     }
     Train(arg)
@@ -23,8 +23,7 @@ def Train_Ja():
         "voc": "../test50K/voc/separate.jap.voc",
         "use_original_make_seed":True,
         "shrinking_rate": 0.75,
-        "desired_voc_size": 8000,
-        "seed_sentence_piece_size": 1e5
+        "vocab_size":8000,
     }
     Train(arg)
 

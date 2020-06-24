@@ -70,5 +70,5 @@ def arg_parser(args,key,default_val=None,required=False):
     if key in args.keys():
         return args[key]
     else:
-        assert required==False,"arg ::{}:: is requiread"
+        assert required==False,"arg ::{}:: is requiread".format(key)
         return default_val
