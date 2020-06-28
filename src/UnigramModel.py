@@ -13,9 +13,6 @@ import pickle
 import subprocess
 
 
-debug_dir="./debug/"
-
-
 class UnigramModel:
     """
     """
@@ -26,6 +23,7 @@ class UnigramModel:
         if "help" in argv.keys():
             self.print_arg_help()
         #from argv
+        self.debug_dir=arg_parser(argv,"debug_dir",default_val="./debug/")
         self.file = arg_parser(argv,"file",required=True)
         self.out_voc_file = arg_parser(argv,"voc",required=True)
         self.shrinking_rate = arg_parser(argv,"shrinking_rate",default_val=0.75)
@@ -185,7 +183,7 @@ class UnigramModel:
         """
         dump data into pickle
         """
-        with open(debug_dir+"{:2}_".format(self.debug_cnt)+name+".pickle","wb") as f:
+        with open(self.debug_dir+"{:2}_".format(self.debug_cnt)+name+".pickle","wb") as f:
                 pickle.dump(data,f)
 
 
@@ -231,6 +229,8 @@ class UnigramModel:
                 for w in s.split(" "):
                     words[self.sep_voc+w] += 1
                     for c in w:
+                        if c=="\t":
+                            continue
                         chars[c]+=1
                 sentences.append(_s)
 

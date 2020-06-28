@@ -19,7 +19,6 @@ def get_alignmentscore_ibm1(U_s,U_t):
         tgt, src,align = bitext.words, bitext.mots,bitext.alignment
         for (tgt_idx,src_idx) in bitext.alignment:
             if src_idx is None:
-                assert 1==2
                 ret+=log(ibm1.translation_table[tgt[tgt_idx]][None])
             else:
                 ret+=log(ibm1.translation_table[tgt[tgt_idx]][src[src_idx]])
@@ -225,9 +224,9 @@ def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,debug=False,alpha=0.5):
     for key in LM_loss_t.keys():
         joint_loss_t[key] = (1-alpha)*LM_loss_t[key]+alpha*align_loss_t[key]
 
-    new_piece_s = U_s.prune_4_prune_candidate(
+    new_piece_s = U_s.prune_step_4_prune_candidate(
         joint_loss_s, new_sentencepieces_s)
-    new_piece_t = U_t.prune_4_prune_candidate(
+    new_piece_t = U_t.prune_step_4_prune_candidate(
         joint_loss_t, new_sentencepieces_t)
 
     if debug:
@@ -327,7 +326,7 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.5):
 
             align_score_t_s_before,align_score_s_t_before = get_alignmentscore_ibm1(U_src,U_tgt),get_alignmentscore_ibm1(U_tgt,U_src)
             U_src.set_sentence_piece(new_piece_src,debug_name="src_step{}_prune".format(step_cnt))
-            U_tgt.set_sentence_piece(new_piece_tgt,debug_name="src_step{}_prune".format(step_cnt))
+            U_tgt.set_sentence_piece(new_piece_tgt,debug_name="tgt_step{}_prune".format(step_cnt))
             align_score_t_s_after,align_score_s_t_after = get_alignmentscore_ibm1(U_tgt,U_src),get_alignmentscore_ibm1(U_tgt,U_src)
             U_src.dump_to_pickle("src_step{}_pruneloss_diff".format(step_cnt),{"algin_before":align_score_s_t_before,"align_after":align_score_s_t_after,"gain":align_score_s_t_after-align_score_s_t_before})
             U_tgt.dump_to_pickle("tgt_step{}_pruneloss_diff".format(step_cnt),{"algin_before":align_score_t_s_before,"align_after":align_score_t_s_after,"gain":align_score_t_s_after-align_score_t_s_before})

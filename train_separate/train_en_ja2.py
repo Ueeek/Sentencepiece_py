@@ -7,10 +7,10 @@ def Train_En():
     print("Train EN")
     arg = {
         "file": "../corpus/train.en",
-        "voc": "./res_vo2/separate.en.voc",
+        "voc":"../testFull/voc/separate.en.voc",
         "shrinking_rate": 0.75,
         "use_original_make_seed":True,
-        "desired_voc_size": 8000,
+        "vocab_size":8000,
         "seed_sentence_piece_size": 1e5
     }
     Train(arg)
@@ -20,10 +20,10 @@ def Train_Ja():
     print("Train JA")
     arg = {
         "file":"../corpus/train.jap",
-        "voc": "./res_vo2/separate.jap.voc",
+        "voc":"../testFull/voc/separate.jap.voc",
         "shrinking_rate": 0.75,
         "use_original_make_seed":True,
-        "desired_voc_size": 8000,
+        "vocab_size":8000,
         "seed_sentence_piece_size": 1e5
     }
     Train(arg)

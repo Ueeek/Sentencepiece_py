@@ -5,6 +5,7 @@ from UnigramTrainerAlign import train_align
 
 
 debug=True
+debug_dir="./debug_alpha1/"
 if __name__ == "__main__":
     arg_mini_en = {
         "file": "../corpus/train5K.en",
@@ -12,6 +13,7 @@ if __name__ == "__main__":
         "use_original_make_seed":True,
         "vocab_size":4000,
         "debug":debug,
+        "debug_dir":debug_dir,
     }
     arg_mini_ja = {
         "file": "../corpus/train5K.jap",
@@ -19,5 +21,6 @@ if __name__ == "__main__":
         "use_original_make_seed":True,
         "debug":debug,
         "vocab_size":4000,
+        "debug_dir":debug_dir,
     }
-    train_align(arg_mini_en,arg_mini_ja,debug=debug)
+    train_align(arg_mini_en,arg_mini_ja,debug=debug, alpha=1)

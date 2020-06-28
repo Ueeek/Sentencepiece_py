@@ -14,3 +14,5 @@ train_with_align/*.vocab
 train_with_align/res_voc
 train_with_align/debug
 
+train_separate_test
+

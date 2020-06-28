@@ -4,21 +4,6 @@ sys.path.append("../src/")
 from UnigramTrainerAlign import train_align
 
 if __name__ == "__main__":
-    arg_mini_en = {
-        "file": "../corpus/test5K.mini.en",
-        "voc": "./res_voc/dummy.en.voc",
-        "shrinking_rate": 0.75,
-        "desired_voc_size": 90,
-        "seed_sentence_piece_size": 1e5
-    }
-    arg_mini_ja = {
-        "file": "./corpus/test.mini.jap",
-        "voc": "./res_voc/dummy.jap.voc",
-        "shrinking_rate": 0.75,
-        "use_original_make_seed":True,
-        "desired_voc_size": 90,
-        "seed_sentence_piece_size": 1e5
-    }
     arg_en = {
         "file": "../corpus/train.en",
         "voc": "./res_voc/align.en.voc",
