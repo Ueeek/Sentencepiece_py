@@ -23,4 +23,4 @@ if __name__ == "__main__":
         "vocab_size":4000,
         "debug_dir":debug_dir
     }
-    train_align(arg_mini_en,arg_mini_ja,alpha=0.01,debug=debug)
+    train_align(arg_mini_en,arg_mini_ja,alpha=1,debug=debug)

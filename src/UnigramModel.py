@@ -39,6 +39,8 @@ class UnigramModel:
         self.kSentenceBoundary = arg_parser(argv,"kSentenceBoundary",default_val=chr(0x0000))
 
 
+        self.lang=self.file[-2:]
+        #print("Lang=>",self.lang)
         self.debug_cnt=0
         self.SentencePiece = SentencePiece()
         self.Trie = None
@@ -47,9 +49,10 @@ class UnigramModel:
         self.desired_voc_size = int(self.vocab_size*1.1)
         self.required_chars=dict()
 
-        print("argv")
-        for key,val in argv.items():
-            print("key:{} => {}".format(key,val))
+        if self.debug:
+            print("argv")
+            for key,val in argv.items():
+                print("key:{} => {}".format(key,val))
 
 
     def print_arg_help(self):
@@ -91,8 +94,12 @@ class UnigramModel:
         else:
             print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
             try:
-                res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
+                if self.lang=="en":
+                    res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false","--vocab_size",str(5800)])
+                else:
+                    res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false","--vocab_size",str(3800)])
             except:
+                print("run error of spm_train")
                 exit()
 
         Voc={}
@@ -124,7 +131,7 @@ class UnigramModel:
                     continue
                 array.append(c)
                 all_chars[c] += freq
-            array.append(kSentenceBoundary)
+            array.append(self.kSentenceBoundary)
 
         print("alphabet=>", len(all_chars))
 
@@ -141,11 +148,11 @@ class UnigramModel:
             if l <= 1:  # lcp=1なので1回しか出てこない
                 continue
             sb = SA.string[SA.sa[i]:SA.sa[i]+l]  # 2回以上出てくるsbst
-            if sb[-1] == kSentenceBoundary:  # 最後の "0x00"は大目に見る
+            if sb[-1] == self.kSentenceBoundary:  # 最後の "0x00"は大目に見る
                 sb = sb[:-1]
             if len(sb) <= 1:  # 多目に見た後に長さが2.elseはsb=charになっている
                 continue
-            if any(v == kSentenceBoundary for v in sb):  # 途中に 0x00が入っているのはinvalid
+            if any(v == self.kSentenceBoundary for v in sb):  # 途中に 0x00が入っているのはinvalid
                 continue
 
             if not isValidSentencePiece(sb):
@@ -183,6 +190,8 @@ class UnigramModel:
         """
         dump data into pickle
         """
+        #print("name=>",name)
+        #print("debug_dir=>",self.debug_dir)
         with open(self.debug_dir+"{:2}_".format(self.debug_cnt)+name+".pickle","wb") as f:
                 pickle.dump(data,f)
 
@@ -249,8 +258,9 @@ class UnigramModel:
             assert key!="\t","tab must not be included"
             self.required_chars[key]=val
 
-        print("Alphabet size=>",len(self.required_chars))
-        print("Final character cpverage=>",accumulated_chars_count/all_chars_count)
+        if self.debug:
+            print("Alphabet size=>",len(self.required_chars))
+            print("Final character cpverage=>",accumulated_chars_count/all_chars_count)
                 
         assert self.character_coverage==1,"unk 処理 is not implemented at load sentences #TODO"
 
@@ -311,6 +321,8 @@ class UnigramModel:
         logsum = Digamma(sum_freq)
         for key, val in new_pieces.items():
             new_pieces[key] = Digamma(val)-logsum
+
+        print("m_step:sum(p(x))=>{}".format(sum([exp(v) for v in new_pieces.values()])))
 
         return new_pieces
 
@@ -483,7 +495,7 @@ class UnigramModel:
             final_piece[key]=val
 
 
-        self.set_sentence_piece(final_piece)
+        self.set_sentence_piece(final_piece,debug_name="finalized_piece")
         #required charをどっかで作っているはず#trainer_interface.cc の LoadSentenceの下の方でやってる
         #write out to file
         piece = self.SentencePiece.get_pieces()
