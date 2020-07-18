@@ -263,8 +263,9 @@ def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,debug=False,alpha=0.5):
     align_loss_s = src_func(U_s,U_t,always_keep_s,alternatives_s,freq_s)
     align_loss_t = tgt_func(U_t,U_s,always_keep_t,alternatives_t,freq_t)
 
-    #align_loss_no_approx_s= alignment_loss_no_approx(U_s,U_t,always_keep_s,alternatives_s,freq_s)
-    #align_loss_no_approx_t= alignment_loss_no_approx(U_t,U_s,always_keep_t,alternatives_t,freq_t)
+    if debug:
+        align_loss_no_approx_s= alignment_loss_no_approx(U_s,U_t,always_keep_s,alternatives_s,freq_s)
+        align_loss_no_approx_t= alignment_loss_no_approx(U_t,U_s,always_keep_t,alternatives_t,freq_t)
 
     joint_loss_s = dict()
     joint_loss_t = dict()
@@ -371,10 +372,9 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.5):
         else:
             if allA:
                 new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss_all_alignment)
-            else:
-                #new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss)
+            else:#alterでもallAでもない両方を同時にpruneするやつ
                 if debug:
-                    new_piece_src, new_piece_tgt,piece_debug_s,piece_debug_t,debug_align_loss_s,debug_align_loss_t= prune_step_with_align(U_src,U_tgt,alignment_loss,debug=True,alpha=alpha)
+                    new_piece_src, new_piece_tgt,piece_debug_s,piece_debug_t,debug_align_loss_s,debug_align_loss_t= prune_step_with_align(U_src,U_tgt,alignment_loss,debug=debug,alpha=alpha)
                     #new_piece_src, new_piece_tgt,piece_debug_s,piece_debug_t,debug_align_loss_s,debug_align_loss_t= prune_step_with_align(U_src,U_tgt,src_func=alignment_loss_no_approx,tgt_func=alignment_loss_no_approx,debug=True,alpha=alpha)
                 else:
                     new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss,alpha=alpha)

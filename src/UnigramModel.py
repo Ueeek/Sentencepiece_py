@@ -23,6 +23,7 @@ class UnigramModel:
         if "help" in argv.keys():
             self.print_arg_help()
         #from argv
+        self.quiet=arg_parser(argv,"quiet",default_val="False")
         self.debug_dir=arg_parser(argv,"debug_dir",default_val="./debug/")
         self.file = arg_parser(argv,"file",required=True)
         self.out_voc_file = arg_parser(argv,"voc",required=True)
@@ -40,7 +41,6 @@ class UnigramModel:
 
 
         self.lang=self.file[-2:]
-        #print("Lang=>",self.lang)
         self.debug_cnt=0
         self.SentencePiece = SentencePiece()
         self.Trie = None
@@ -49,7 +49,7 @@ class UnigramModel:
         self.desired_voc_size = int(self.vocab_size*1.1)
         self.required_chars=dict()
 
-        if self.debug:
+        if not self.quiet:
             print("argv")
             for key,val in argv.items():
                 print("key:{} => {}".format(key,val))
@@ -76,7 +76,7 @@ class UnigramModel:
             for s in f:
                 key, val = s.split("\t")
                 Voc[key] = float(val)
-        #self.set_sentnece_piece(Voc)
+
         if self.debug:
             self.set_sentence_piece(Voc,debug_name="seed",info="init_piece")
         else:
@@ -86,7 +86,7 @@ class UnigramModel:
         """c++のsentencepieceのmake_seedを呼び出してvocをとってくる。
         unigram_model_trainer.c++のEM前で、seed_pieceを求めた後に、fileに SaveVocab()と似た感じで、fileに書き込んで終了している。
         EMに入る前で止めている。
-        original sentence pieceを書き換えないと動かないので注意
+        original sentence pieceを書き換えないと動かないので注意(ミスってpull して消してしまったので#TODO)
         """
         f_name=self.file.split("/")[-1]
         if os.path.isfile(f_name+".seed.vocab"):
@@ -94,12 +94,13 @@ class UnigramModel:
         else:
             print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
             try:
-                if self.lang=="en":
-                    res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false","--vocab_size",str(5800)])
-                else:
-                    res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false","--vocab_size",str(3800)])
+                res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
+                #if self.lang=="en":
+                #    res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false","--vocab_size",str(5800)])
+                #else:
+                #    res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false","--vocab_size",str(3800)])
             except:
-                print("run error of spm_train")
+                assert 1==2,"run error of spm_train"
                 exit()
 
         Voc={}
@@ -133,15 +134,18 @@ class UnigramModel:
                 all_chars[c] += freq
             array.append(self.kSentenceBoundary)
 
-        print("alphabet=>", len(all_chars))
+        if not self.quiet:
+            print("alphabet=>", len(all_chars))
 
         # make a suffix_array to extract all sub strings occuring more than 2 times in the sentence
         # ここは、配列のサイズによって、分割した方が良さそうな気がする?sa-isでやっているはずで、線形アルゴリズムだから関係ない説もある
         A = "".join(array)
-        print("Making Suffix Array len:{}".format(len(array)))
+        if not self.quiet:
+            print("Making Suffix Array len:{}".format(len(array)))
         SA = SuffixArray(A)
 
-        print("Extracting frequent sub strings...")
+        if not self.quiet:
+            print("Extracting frequent sub strings...")
         # TODO 結構怪しい気がする ここの処理
         substr = set()
         for i, l in enumerate(SA.longest_common_prefix()):
@@ -169,8 +173,9 @@ class UnigramModel:
             pass
         elif len(seed_sentencepieces)+len(substr) > self.seed_sentence_piece_size:
             delete_size = len(seed_sentencepieces) + len(substr) -  self.seed_sentence_piece_size
-            print(
-                "del {} freq-sbst because of seed_sentence_piece_size".format(delete_size))
+            if not self.quiet:
+                print(
+                    "del {} freq-sbst because of seed_sentence_piece_size".format(delete_size))
             for sb, val in substr[:int(delete_size)]:
                 seed_sentencepieces[sb] = val
         else:
@@ -182,7 +187,8 @@ class UnigramModel:
         for i, v in seed_sentencepieces.items():
             seed_sentencepieces[i] = log(v)-s
 
-        print("Initialized {} seed sentence pieces".format(
+        if not self.quiet:
+            print("Initialized {} seed sentence pieces".format(
             len(seed_sentencepieces)))
         return seed_sentencepieces
 
@@ -190,9 +196,7 @@ class UnigramModel:
         """
         dump data into pickle
         """
-        #print("name=>",name)
-        #print("debug_dir=>",self.debug_dir)
-        with open(self.debug_dir+"{:2}_".format(self.debug_cnt)+name+".pickle","wb") as f:
+        with open(self.debug_dir+"{:3}_".format(self.debug_cnt)+name+".pickle","wb") as f:
                 pickle.dump(data,f)
 
 
