@@ -89,16 +89,13 @@ class UnigramModel:
         original sentence pieceを書き換えないと動かないので注意(ミスってpull して消してしまったので#TODO)
         """
         f_name=self.file.split("/")[-1]
-        if os.path.isfile(f_name+".seed.vocab"):
+        print("fname=>",f_name)
+        if os.path.isfile(f_name+"seed.vocab"):
             print("seed file is already exsists. skip c++ code")
         else:
             print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
             try:
-                res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
-                #if self.lang=="en":
-                #    res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false","--vocab_size",str(5800)])
-                #else:
-                #    res = subprocess.run(["/home/ueki.k/.src/sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false","--vocab_size",str(3800)])
+                res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
             except:
                 assert 1==2,"run error of spm_train"
                 exit()
