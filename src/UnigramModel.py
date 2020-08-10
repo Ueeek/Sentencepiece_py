@@ -41,7 +41,6 @@ class UnigramModel:
         self.kSentenceBoundary = arg_parser(argv,"kSentenceBoundary",default_val=chr(0x0000))
 
 
-        self.lang=self.file[-2:]
         self.debug_cnt=0
         self.SentencePiece = SentencePiece()
         self.Trie = None
@@ -87,7 +86,6 @@ class UnigramModel:
         """c++のsentencepieceのmake_seedを呼び出してvocをとってくる。
         unigram_model_trainer.c++のEM前で、seed_pieceを求めた後に、fileに SaveVocab()と似た感じで、fileに書き込んで終了している。
         EMに入る前で止めている。
-        original sentence pieceを書き換えないと動かないので注意(ミスってpull して消してしまったので#TODO)
         """
         f_name=self.file.split("/")[-1]
         print("fname=>",f_name)
@@ -96,8 +94,10 @@ class UnigramModel:
         else:
             print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
             try:
+                #TODO optionはこれでいいのか?
+                res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size)])
                 #res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
-                res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
+                #res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
             except:
                 assert 1==2,"run error of spm_train"
                 exit()
