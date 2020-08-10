@@ -8,6 +8,7 @@ import pygtrie
 from util import *
 from pysuffixarray.core import SuffixArray
 
+
 import pickle
 
 import subprocess
@@ -95,7 +96,8 @@ class UnigramModel:
         else:
             print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
             try:
-                res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
+                #res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
+                res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
             except:
                 assert 1==2,"run error of spm_train"
                 exit()
