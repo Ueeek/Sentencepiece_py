@@ -493,7 +493,7 @@ class UnigramModel:
         for  key,val in sorted(pieces.items(),key=lambda x:-x[1]):
             if key in final_piece.keys():
                 continue
-            if len(final_piece)==self.vocab_size:
+            if len(final_piece)==self.vocab_size-3:
                 break
             final_piece[key]=val
 
@@ -503,6 +503,8 @@ class UnigramModel:
         #write out to file
         piece = self.SentencePiece.get_pieces()
         with open(self.out_voc_file, "w") as f:
+            for key in ["<unk>","<s>","</s>"]:
+                f.write("{}\t{}\n".format(key,0))
             for key, val in sorted(piece.items(), key=lambda x: -x[1]):
                 f.write("{}\t{}\n".format(key, val))
         print("finalized vocab size=>",len(piece))
@@ -623,6 +625,15 @@ class UnigramModel:
         else:
             return piece
 
+    def load_voc_file(self,voc_file):
+        vocs=set()
+        with open(voc_file) as f:
+            for s in f:
+                key,val  = s.split()
+                vocs.add(key)
+        self.decode_voc=vocs
+
+
     def decode_one_sent(self, s:str)->str:
         """
         Arguments:
@@ -630,12 +641,15 @@ class UnigramModel:
         Returns:
             ret_sent(str): space split tokenize sentence
         """
+        s = "".join([c if c in self.decode_voc else self.unk_surface  for c in s.split()])
         s = "".join(s.split(" ")) #remove whitespace
         s = s.replace("\n","")
         s = s.replace(self.sep_voc," ")
+
         if len(s)>0 and s[0]==" ": #remove white space located at the beginning of sent(beggining "_")
             s=s[1:]
         return s
+
 
     def decode_sent(self,path:str)->list:
         """
