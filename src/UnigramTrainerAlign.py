@@ -320,7 +320,9 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.01,
     """
     Arguments:
         alter(bool): false ならsrcとtgt、同じステップで両方ともpruneでalinを考慮する・
-        trueなら、srcとtgtでalignmの考慮を交互にする(隔step)
+        debug: debug_dirに、pickleをdump
+        alpha: (1-alpha)*LM_loss+alpha*Align_loss
+        back_up_interval: back up UnigramModel_src & tgt by this interval
     """
 
     assert back_up_interval==-1 or back_up_file is not None, "set backup path"
@@ -381,7 +383,6 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.01,
             else:#alterでもallAでもない両方を同時にpruneするやつ
                 if debug:
                     new_piece_src, new_piece_tgt,piece_debug_s,piece_debug_t,debug_align_loss_s,debug_align_loss_t= prune_step_with_align(U_src,U_tgt,alignment_loss,debug=debug,alpha=alpha)
-                    #new_piece_src, new_piece_tgt,piece_debug_s,piece_debug_t,debug_align_loss_s,debug_align_loss_t= prune_step_with_align(U_src,U_tgt,src_func=alignment_loss_no_approx,tgt_func=alignment_loss_no_approx,debug=True,alpha=alpha)
                 else:
                     new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss,alpha=alpha)
 
