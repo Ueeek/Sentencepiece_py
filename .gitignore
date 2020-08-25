@@ -18,4 +18,5 @@ train_separate_test
 
 toy_katakana
 toydata_large
-
+train_wmt_deen
+train_transliteration_jaen

@@ -7,6 +7,7 @@ from math import log,exp
 from Lattice import Lattice
 from UnigramModel import UnigramModel
 from collections import defaultdict
+import pickle
 
 def get_alignmentscore_ibm1(U_s,U_t):
     "P(T,A|S)を計算する"
@@ -315,13 +316,16 @@ def prune_step_with_align(U_s,U_t,src_func,tgt_func=None,debug=False,alpha=0.5):
         return new_piece_s, new_piece_t,piece_debug_s,piece_debug_t,debug_align_loss_s,debug_align_loss_t
     return new_piece_s, new_piece_t
 
-def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.5):
+def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.01,back_up_interval=-1,back_up_file=None):
     """
     Arguments:
         alter(bool): false ならsrcとtgt、同じステップで両方ともpruneでalinを考慮する・
         trueなら、srcとtgtでalignmの考慮を交互にする(隔step)
     """
+
+    assert back_up_interval==-1 or back_up_file is not None, "set backup path"
     print("Train align")
+
     U_src = UnigramModel(arg_src)
     U_tgt = UnigramModel(arg_tgt)
 
@@ -340,6 +344,7 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.5):
     step_cnt = 0
     while True:
         step_cnt += 1
+        print("EM")
         for itr in range(2):
             # E
             exp_src, obj_src, n_token_src = U_src.run_e_step()
@@ -364,6 +369,7 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.5):
         if U_src.SentencePiece.get_piece_size() <= U_src.desired_voc_size and U_tgt.SentencePiece.get_piece_size() <= U_tgt.desired_voc_size:
             break
 
+        print("Align")
         if alter:
             if step_cnt % 2:#srcのみ
                 new_piece_src, new_piece_tgt = prune_step_with_align(U_src,U_tgt,alignment_loss,no_alignment_loss)
@@ -397,6 +403,13 @@ def train_align(arg_src, arg_tgt, alter=False,allA=False,debug=False,alpha=0.5):
         else:
             U_src.set_sentence_piece(new_piece_src)
             U_tgt.set_sentence_piece(new_piece_tgt)
+
+        if back_up_interval>=1 and step_cnt%back_up_interval==0:
+            with open(back_up_file+"_{}.src.pickle".format(step_cnt),"wb") as f:
+                pickle.dump(U_src,f)
+            with open(back_up_file+"_{}.tgt.pickle".format(step_cnt),"wb") as f:
+                pickle.dump(U_tgt,f)
+
 
     print("{} step is needed to converge".format(step_cnt))
     U_src.finalize_sentencepiece()
