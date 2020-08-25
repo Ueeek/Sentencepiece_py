@@ -53,6 +53,7 @@ class UnigramModel:
             print("argv")
             for key,val in argv.items():
                 print("key:{} => {}".format(key,val))
+        print("desired_voc_size=>",self.desired_voc_size)
 
 
     def print_arg_help(self):
@@ -89,13 +90,13 @@ class UnigramModel:
         """
         f_name=self.file.split("/")[-1]
         print("fname=>",f_name)
-        if os.path.isfile(f_name+"seed.vocab"):
+        if os.path.isfile(f_name+".seed.vocab"):
             print("seed file is already exsists. skip c++ code")
         else:
             print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
             try:
                 #TODO optionはこれでいいのか?
-                res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size)])
+                res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size)])
                 #res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
                 #res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
             except:
@@ -266,6 +267,8 @@ class UnigramModel:
             print("Final character cpverage=>",accumulated_chars_count/all_chars_count)
                 
         assert self.character_coverage==1,"unk 処理 is not implemented at load sentences #TODO"
+        assert len(self.required_chars)<=self.vocab_size,"vocab_size is too small, should larger than required_chars_size:{}".format(len(self.required_chars))
+
 
     def run_e_step(self):
         """E step of EM learning
@@ -529,6 +532,21 @@ class UnigramModel:
             seed_sentencepieces = self.make_seed_sentence_piece()
         return seed_sentencepieces
 
+    def check_finish(self):
+        return self.SentencePiece.get_piece_size() <= self.desired_voc_size
+
+    def run_EM(self):
+        for itr in range(2):  # EM iteration loop
+            expected, objective, num_tokens = self.run_e_step()
+            new_sentencepieces = self.run_m_step(expected)
+
+            self.set_sentence_piece(new_sentencepieces)
+
+            piece_size = self.SentencePiece.get_piece_size()
+            print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(
+                itr, piece_size, objective, num_tokens, num_tokens/piece_size))
+
+
     def train(self):
         """ training 
         """
@@ -539,23 +557,27 @@ class UnigramModel:
 
         step_cnt = 0
         print("init vocab size is {}\n start EM trainind".format(self.SentencePiece.get_piece_size()))
+
+        #TODO RUN_EMで一つにまとめる
         while True:
 
             step_cnt += 1
-            for itr in range(2):  # EM iteration loop
-                expected, objective, num_tokens = self.run_e_step()
-                new_sentencepieces = self.run_m_step(expected)
+            self.run_EM()
+            #for itr in range(2):  # EM iteration loop
+            #    expected, objective, num_tokens = self.run_e_step()
+            #    new_sentencepieces = self.run_m_step(expected)
 
-                if self.debug:
-                    self.set_sentence_piece(new_sentencepieces,debug_name="step{}_mstep{}".format(step_cnt,itr))
-                else:
-                    self.set_sentence_piece(new_sentencepieces)
+            #    if self.debug:
+            #        self.set_sentence_piece(new_sentencepieces,debug_name="step{}_mstep{}".format(step_cnt,itr))
+            #    else:
+            #        self.set_sentence_piece(new_sentencepieces)
 
-                piece_size = self.SentencePiece.get_piece_size()
-                print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(
-                    itr, piece_size, objective, num_tokens, num_tokens/piece_size))
+            #    piece_size = self.SentencePiece.get_piece_size()
+            #    print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(
+            #        itr, piece_size, objective, num_tokens, num_tokens/piece_size))
 
-            if self.SentencePiece.get_piece_size() <= self.desired_voc_size:
+            ##TODO 外から呼べるように bool func(){}にする
+            if self.check_finish():
                 break
             new_sentencepieces = self.prune_piece()
             if self.debug:
