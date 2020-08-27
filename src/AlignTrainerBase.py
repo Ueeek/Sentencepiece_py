@@ -78,28 +78,11 @@ class AlignTrainerBase:
         step_cnt = 0
         while True:
             step_cnt += 1
-            #TODO UnigamModleのEM()とかを呼べばできるのでは
             print("EM")
             self.U_src.run_EM()
             self.U_tgt.run_EM()
             if self.U_src.check_finish() and self.U_tgt.check_finish():
                 break
-            #for itr in range(2):
-            #    # E
-            #    exp_src, obj_src, n_token_src = self.U_src.run_e_step()
-            #    exp_tgt, obj_tgt, n_token_tgt = self.U_tgt.run_e_step()
-
-            #    # M
-            #    new_pieces_src = self.U_src.run_m_step(exp_src)
-            #    new_piece_tgt = self.U_tgt.run_m_step(exp_tgt)
-
-            #    self.U_src.set_sentence_piece(new_pieces_src)
-            #    self.U_tgt.set_sentence_piece(new_piece_tgt)
-
-            #if self.U_src.SentencePiece.get_piece_size() <= self.U_src.desired_voc_size and self.U_tgt.SentencePiece.get_piece_size() <= self.U_tgt.desired_voc_size:
-            #    print("size:SRC:{}.TGT:{}".format(self.U_src.SentencePiece.get_piece_size(),self.U_tgt.SentencePiece.get_piece_size()))
-            #    print("desired:SRC:{}.TGT:{}".format(self.U_src.desired_voc_size,self.U_tgt.desired_voc_size))
-            #    break
 
             print("Align")
             new_piece_src, new_piece_tgt= self.prune_step_with_align(alpha=alpha)
