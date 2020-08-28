@@ -78,8 +78,9 @@ class AlignTrainerBase:
         step_cnt = 0
         while True:
             step_cnt += 1
-            print("EM")
+            print("EM_src")
             self.U_src.run_EM()
+            print("EM_tgt")
             self.U_tgt.run_EM()
             if self.U_src.check_finish() and self.U_tgt.check_finish():
                 break

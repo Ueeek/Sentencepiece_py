@@ -696,5 +696,4 @@ if __name__ == "__main__":
         "voc": "dummy.en.voc",
         "seed_sentence_piece_size": 1e5
     }
-    U = UnigramModel(arg)
     U.train()

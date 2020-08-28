@@ -6,9 +6,12 @@ from math import log,exp
 from Lattice import Lattice
 from collections import defaultdict
 import pickle
+import random
+
 
 from AlignTrainerBase import AlignTrainerBase
 
+#srcとtgtでそれぞれ、2甲斐づつ呼ばれている。？
 def get_viterbi_path(s, U):
     """
     Arguments:
@@ -23,7 +26,7 @@ def get_viterbi_path(s, U):
     viterbi_tokens = L.Viterbi(ret_piece=True)
     return viterbi_tokens
 
-def get_bitexts(U_s,U_t):
+def get_bitexts(U_s,U_t,sample_rate=1.0):
     """
     srcとtgtをbest tokenizeしてreturn　する
     Arguments:
@@ -32,13 +35,23 @@ def get_bitexts(U_s,U_t):
         bitexts(list): text pair for train ibm
     """
     bitexts = []
-    for src, tgt in zip(U_s.sentences, U_t.sentences):
+
+
+    len_examples=len(U_s.sentences)
+    use_examples= int(len_examples*sample_rate)
+    use_idx=set(random.sample(range(len_examples),use_examples))
+
+
+    print("all:{} use:{} sample_rate:{}".format(len_examples, use_examples,sample_rate))
+    for i,(src, tgt) in enumerate(zip(U_s.sentences, U_t.sentences)):
+        if i not in use_idx:
+            continue
         src_viterbi = get_viterbi_path(src, U_s)
         tgt_viterbi = get_viterbi_path(tgt, U_t)
         bitexts.append(AlignedSent(tgt_viterbi, src_viterbi))
     return bitexts
 
-def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
+def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s,sample_rate=1.0):
     """ alignlossを求めたい
     U_sにalignment lossを加える
     * X,Y,A全てbestを使って近似
@@ -55,9 +68,12 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
     * sum(tt[t][src] for t in tt.keys())=1 tgtはNoneを含まないから
     """
 
-    bitexts = get_bitexts(U_s,U_t)
+    print("get_bitexts")
+    bitexts = get_bitexts(U_s,U_t,sample_rate=sample_rate)
     # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
+    print("train ibm")
     ibm1 = IBMModel1(bitexts, 2)
+    print("finish train ibm")
 
 
     # for each piece x,get words which aligns to x
@@ -103,4 +119,5 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s):
 
                 loss += val/sum_val*(logP_key - logP_alt)
             candidate_s[s_key] = loss
+    print("end calc of align_loss")
     return candidate_s
