@@ -6,7 +6,9 @@ from math import log
 from Lattice import Lattice
 import pygtrie
 from util import *
+
 from pysuffixarray.core import SuffixArray
+import gc
 
 
 import pickle
@@ -37,6 +39,8 @@ class UnigramModel:
         # original spの"_"の太文字みたいな文字
         self.sep_voc = arg_parser(argv,"sep_voc",default_val=chr(9601))
         self.debug = arg_parser(argv,"debug",default_val=False)
+        ###TODO
+        self.debug=False
         # Merge all sentences into one array with 0x0000 delimiter
         self.kSentenceBoundary = arg_parser(argv,"kSentenceBoundary",default_val=chr(0x0000))
 
@@ -53,7 +57,6 @@ class UnigramModel:
             print("argv")
             for key,val in argv.items():
                 print("key:{} => {}".format(key,val))
-        print("desired_voc_size=>",self.desired_voc_size)
 
 
     def print_arg_help(self):
@@ -89,14 +92,13 @@ class UnigramModel:
         EMに入る前で止めている。
         """
         f_name=self.file.split("/")[-1]
-        print("fname=>",f_name)
         if os.path.isfile(f_name+".seed.vocab"):
             print("seed file is already exsists. skip c++ code")
         else:
             print("run MakeSeedSentence of original c++ sentnecepiece code to get initial piece")
             try:
                 #TODO optionはこれでいいのか?
-                res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size)])
+                res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(self.vocab_size)])
                 #res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
                 #res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
             except:
@@ -206,22 +208,9 @@ class UnigramModel:
         Args:
             pieces(dict): current sentencepieces dict[piece]=score
         """
-        if self.debug and self.SentencePiece.get_pieces() is not None:
-            ##LM OBJを求める
-            _, obj_before,_ = self.run_e_step()
-            pruned_voc = set(self.SentencePiece.get_pieces().keys() - pieces.keys())
-            #pieceの更新
-            self.SentencePiece._set_sentence_piece(pieces)
-            self.build_trie(pieces)
-            ###
-            _, obj_after,_ = self.run_e_step()
-
-            debug_info={"obj_before":obj_before,"obj_after":obj_after,"pruned_voc":pruned_voc,"info":info,"gain":obj_before-obj_after}
-            self.dump_to_pickle(debug_name,debug_info)
-            self.debug_cnt+=1
 
         self.SentencePiece._set_sentence_piece(pieces)
-        self.build_trie(pieces)
+        self.build_trie()
 
     def load_sentence(self,path=None):
         """ load sentence from file
@@ -230,8 +219,8 @@ class UnigramModel:
         if path is None:
             path = self.file
 
-        sentences = []
-        words = defaultdict(int)
+        self.sentences = []
+        self.words = defaultdict(int)
         chars=defaultdict(int)
         with open(path) as f:
             for s in f:
@@ -240,15 +229,15 @@ class UnigramModel:
                 s = s.replace("\n","")#\nを消す感じ
                 _s = self.sep_voc + self.sep_voc.join(s.split(" "))
                 for w in s.split(" "):
-                    words[self.sep_voc+w] += 1
+                    self.words[self.sep_voc+w] += 1
                     for c in w:
                         if c=="\t":
                             continue
                         chars[c]+=1
-                sentences.append(_s)
+                self.sentences.append(_s)
 
-        self.sentences = sentences
-        self.words = words
+        #self.sentences = sentences
+        #self.words = words
 
         #determines uequired_chars which must be included in the vocabulary
         accumulated_chars_count=0
@@ -295,6 +284,7 @@ class UnigramModel:
             N = len(L.Viterbi())
             num_tokens += N
             objective -= Z/all_sentence_freq
+
 
         return expected, objective, num_tokens
 
@@ -513,11 +503,11 @@ class UnigramModel:
         print("finalized vocab size=>",len(piece))
         print("written voc to {}".format(self.out_voc_file))
 
-    def build_trie(self, pieces):
+    def build_trie(self):
         """ building Trie from piece
         """
         Trie = pygtrie.Trie()
-        for (key, score) in pieces.items():
+        for (key, score) in self.SentencePiece.get_pieces().items():
             Trie[key] = (key, score)
         self.Trie = Trie
 
@@ -563,20 +553,6 @@ class UnigramModel:
 
             step_cnt += 1
             self.run_EM()
-            #for itr in range(2):  # EM iteration loop
-            #    expected, objective, num_tokens = self.run_e_step()
-            #    new_sentencepieces = self.run_m_step(expected)
-
-            #    if self.debug:
-            #        self.set_sentence_piece(new_sentencepieces,debug_name="step{}_mstep{}".format(step_cnt,itr))
-            #    else:
-            #        self.set_sentence_piece(new_sentencepieces)
-
-            #    piece_size = self.SentencePiece.get_piece_size()
-            #    print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(
-            #        itr, piece_size, objective, num_tokens, num_tokens/piece_size))
-
-            ##TODO 外から呼べるように bool func(){}にする
             if self.check_finish():
                 break
             new_sentencepieces = self.prune_piece()
@@ -584,8 +560,6 @@ class UnigramModel:
                 self.set_sentence_piece(new_sentencepieces,debug_name="step{}_prune".format(step_cnt))
             else:
                 self.set_sentence_piece(new_sentencepieces)
-
-
         # Save to file
         print("{} step is needed to converge".format(step_cnt))
         self.finalize_sentencepiece()
@@ -613,24 +587,6 @@ class UnigramModel:
         encode_sentences = [self.encode_one_sent(s) for s in self.sentences]
         return encode_sentences
 
-    def encode_new(self,path,voc_file):
-        """
-        pathのぶんをencodeする
-        """
-        #TODO こいつを使えるようにする
-        self.load_sentence(path=path)
-        self.read_sentencenpiece_from_voc_file(voc_file)
-
-        ret=[]
-        with open(path) as f:
-            for s in f:
-                if s[-1]=="\n":
-                    s = s[:-1]
-                encoded_sent = self.encode_one_sent(s)
-                ret.append(encoded_sent)
-        return ret
-
-        
 
     def decode_one_piece(self,piece:str):
         """
@@ -685,15 +641,3 @@ class UnigramModel:
             for s in f:
                 ret.append(self.decode_one_sent(s))
         return ret
-
-
-
-
-# sample
-if __name__ == "__main__":
-    arg = {
-        "file": "../test/dummy2.en",
-        "voc": "dummy.en.voc",
-        "seed_sentence_piece_size": 1e5
-    }
-    U.train()

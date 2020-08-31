@@ -51,7 +51,7 @@ def get_bitexts(U_s,U_t,sample_rate=1.0):
         bitexts.append(AlignedSent(tgt_viterbi, src_viterbi))
     return bitexts
 
-def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s,sample_rate=1.0):
+def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s,sample_rate=1.0,em_steps=2):
     """ alignlossを求めたい
     U_sにalignment lossを加える
     * X,Y,A全てbestを使って近似
@@ -71,8 +71,8 @@ def alignment_loss(U_s, U_t, always_keep_s, alternatives_s, freq_s,sample_rate=1
     print("get_bitexts")
     bitexts = get_bitexts(U_s,U_t,sample_rate=sample_rate)
     # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
-    print("train ibm")
-    ibm1 = IBMModel1(bitexts, 2)
+    print("train ibm {}steps",em_steps)
+    ibm1 = IBMModel1(bitexts, em_steps)
     print("finish train ibm")
 
 

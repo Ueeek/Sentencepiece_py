@@ -24,6 +24,10 @@ class SentencePiece:
         """
         return self.sentencepieces
 
+    def get_pieces_sorted_items(self):
+        for p in sorted(self.sentencepieces()):
+            yield p
+
     def get_piece_size(self):
         """
             return len piece

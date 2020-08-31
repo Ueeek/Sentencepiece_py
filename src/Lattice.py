@@ -9,6 +9,7 @@ class Node:
     """ Node of lattice
     """
 
+
     def __init__(self):
         """ Attributes
                 piece: surace of piece
