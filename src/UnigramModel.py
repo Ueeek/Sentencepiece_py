@@ -76,7 +76,7 @@ class UnigramModel:
             path(str): path to trained voc file
         """
         Voc = {}
-        with open(path) as f:
+        with open(path,encoding="utf-8") as f:
             for s in f:
                 key, val = s.split("\t")
                 Voc[key] = float(val)
@@ -106,7 +106,7 @@ class UnigramModel:
                 exit()
 
         Voc={}
-        with open(f_name+".seed.vocab") as f:
+        with open(f_name+".seed.vocab",encoding="utf-8") as f:
             for s in f:
                 key,val = s.split("\t")
                 Voc[key]=float(val)
@@ -222,7 +222,7 @@ class UnigramModel:
         self.sentences = []
         self.words = defaultdict(int)
         chars=defaultdict(int)
-        with open(path) as f:
+        with open(path,encoding="utf-8") as f:
             for s in f:
                 #originalは半角のみを扱っていたので、半角のみを扱うようにする。
                 # _s = "_"+"_".join(s.split(" "))#全角と半角のspaceを区別するか(\tとか\nもsplitされるs.split())
@@ -605,7 +605,7 @@ class UnigramModel:
 
     def load_voc_file(self,voc_file):
         vocs=set()
-        with open(voc_file) as f:
+        with open(voc_file,encoding="utf-8") as f:
             for s in f:
                 key,val  = s.split()
                 vocs.add(key)
@@ -637,7 +637,7 @@ class UnigramModel:
         #TODO 1 or 2. 1:encode_sent(path)? 2. decode_sent(),self.sent
         ret=[]
 
-        with open(path) as f:
+        with open(path,encoding="utf-8") as f:
             for s in f:
                 ret.append(self.decode_one_sent(s))
         return ret
