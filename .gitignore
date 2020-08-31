@@ -1,4 +1,5 @@
 src/__pycache__
+src/pysuffixarray
 test
 test5K
 test10K
