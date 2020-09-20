@@ -11,7 +11,6 @@ class AlignTrainerBase:
         self.U_src = UnigramModel(arg_src)
         self.U_tgt = UnigramModel(arg_tgt)
         print("init")
-        input()
 
     def prepare_UnigramModel(self):
         # load sentence
