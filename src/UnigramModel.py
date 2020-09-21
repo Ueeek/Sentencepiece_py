@@ -1,11 +1,13 @@
 import sys
 import os
+import time
 from collections import defaultdict
 from SentencePiece import SentencePiece
 from math import log
 from Lattice import Lattice
 import pygtrie
 from util import *
+from multiprocessing import Pool
 
 from pysuffixarray.core import SuffixArray
 import gc
@@ -26,6 +28,10 @@ class UnigramModel:
         if "help" in argv.keys():
             self.print_arg_help()
         #from argv
+
+        self.n_threads=6
+
+
         self.quiet=arg_parser(argv,"quiet",default_val="False")
         self.debug_dir=arg_parser(argv,"debug_dir",default_val="./debug/")
         self.file = arg_parser(argv,"file",required=True)
@@ -261,7 +267,29 @@ class UnigramModel:
         assert len(self.required_chars)<=self.vocab_size,"vocab_size is too small, should larger than required_chars_size:{}".format(len(self.required_chars))
 
 
-    def run_e_step(self):
+    def process_each(self,tup):
+        expected = defaultdict(int)
+        objective = 0
+        num_tokens = 0
+
+        (key,freq)=tup
+        L = Lattice()
+        L.set_sentence(key)
+        L.populate_nodes(self.SentencePiece.get_pieces(), self.Trie)
+        Z, ret_expected = L.populate_marginal(freq)
+
+        for key, val in ret_expected.items():
+            expected[key] += val
+
+        N = len(L.Viterbi())
+        num_tokens += N
+        #objective -= Z/all_sentence_freq#あとで、all_sentence_freqで割ればいいのでは
+        objective-=Z
+
+        return (expected, objective, num_tokens)
+
+    def run_e_step_pool(self):
+
         """E step of EM learning
         Return:
             objective(int): int
@@ -274,7 +302,35 @@ class UnigramModel:
 
         all_sentence_freq = sum(self.words.values())
 
-        for key, freq in sorted(self.words.items()):
+        #for key, freq in sorted(self.words.items()):
+
+        with Pool(processes=self.n_threads) as p:
+            ret=p.map(func=self.process_each, iterable=list(sorted(self.words.items())))
+
+        for expe, obj, n_t in ret:
+            for key,val in expe.items():
+                expected[key]+=val
+            num_tokens+=n_t
+            objective-=obj
+        objective/=all_sentence_freq
+        return expected, objective, num_tokens
+
+    def run_e_step(self):
+
+        """E step of EM learning
+        Return:
+            objective(int): int
+            nun_token(int): sum of the token num of Viterbi path
+            expected(dict): dict[piece]=score of the piece
+        """
+        expected = defaultdict(int)
+        objective = 0
+        num_tokens = 0
+
+        all_sentence_freq = sum(self.words.values())
+
+        #for key, freq in sorted(self.words.items()):
+        for key, freq in self.words.items():
             L = Lattice()
             L.set_sentence(key)
             L.populate_nodes(self.SentencePiece.get_pieces(), self.Trie)
@@ -529,7 +585,15 @@ class UnigramModel:
 
     def run_EM(self):
         for itr in range(2):  # EM iteration loop
-            expected, objective, num_tokens = self.run_e_step()
+
+            expected, objective, num_tokens = self.run_e_step_pool()
+            #start = time.time()
+            #expected, objective, num_tokens = self.run_e_step_pool()
+            #print("e_step_pool time=>",time.time()-start)
+            #start = time.time()
+            #expected, objective, num_tokens = self.run_e_step()
+            #print("e_step time=>",time.time()-start)
+
             new_sentencepieces = self.run_m_step(expected)
 
             self.set_sentence_piece(new_sentencepieces)
