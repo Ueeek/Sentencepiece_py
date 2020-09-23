@@ -21,3 +21,5 @@ toy_katakana
 toydata_large
 train_wmt_deen
 train_transliteration_jaen
+
+src/translate/__pycache__
