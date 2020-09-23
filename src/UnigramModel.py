@@ -29,7 +29,7 @@ class UnigramModel:
             self.print_arg_help()
         #from argv
 
-        self.n_threads=6
+        self.n_threads=1
 
 
         self.quiet=arg_parser(argv,"quiet",default_val="False")
@@ -268,6 +268,8 @@ class UnigramModel:
 
 
     def process_each(self,tup):
+        all_sentence_freq = sum(self.words.values())
+
         expected = defaultdict(int)
         objective = 0
         num_tokens = 0
@@ -284,7 +286,7 @@ class UnigramModel:
         N = len(L.Viterbi())
         num_tokens += N
         #objective -= Z/all_sentence_freq#あとで、all_sentence_freqで割ればいいのでは
-        objective-=Z
+        objective-= Z/all_sentence_freq
 
         return (expected, objective, num_tokens)
 
@@ -300,19 +302,18 @@ class UnigramModel:
         objective = 0
         num_tokens = 0
 
-        all_sentence_freq = sum(self.words.values())
-
-        #for key, freq in sorted(self.words.items()):
+        #all_sentence_freq = sum(self.words.values())
 
         with Pool(processes=self.n_threads) as p:
             ret=p.map(func=self.process_each, iterable=list(sorted(self.words.items())))
 
-        for expe, obj, n_t in ret:
-            for key,val in expe.items():
+        for ret_exp, ret_obj, ret_tokens in ret:
+            for key, val in ret_exp.items():
                 expected[key]+=val
-            num_tokens+=n_t
-            objective-=obj
-        objective/=all_sentence_freq
+            num_tokens+=ret_tokens
+            objective+=ret_obj
+
+        #objective/=all_sentence_freq
         return expected, objective, num_tokens
 
     def run_e_step(self):
@@ -329,8 +330,8 @@ class UnigramModel:
 
         all_sentence_freq = sum(self.words.values())
 
-        #for key, freq in sorted(self.words.items()):
-        for key, freq in self.words.items():
+        for key, freq in sorted(self.words.items()):
+        #for key, freq in self.words.items():
             L = Lattice()
             L.set_sentence(key)
             L.populate_nodes(self.SentencePiece.get_pieces(), self.Trie)
@@ -411,6 +412,48 @@ class UnigramModel:
         #print("alt=>",alternatives)
         return always_keep, alternatives
 
+    def process_each_prune(self,tup):
+        (s,score) = tup
+
+        current_piece = self.SentencePiece.get_pieces()
+        vsum = 0
+        freq = defaultdict(int)
+        inverted = defaultdict(int)
+
+        vsum += score
+        L = Lattice()
+        L.set_sentence(s)
+        L.populate_nodes(current_piece, self.Trie)
+
+        for word in L.Viterbi(ret_piece=True):
+            freq[word] += score
+            inverted[word] += score
+        return (vsum,freq,inverted)
+
+
+    def prune_step_2_freq_inverted_pool(self):
+        """
+        Return
+            vsum(float):
+            freq(dict):
+            inverted(dict):
+        """
+        vsum = 0
+        freq = defaultdict(int)
+        # inverted[key] stires the set of sentence index where the sentencepiece (key) appears
+        inverted = defaultdict(int)
+
+        with Pool(processes=self.n_threads) as p:
+            ret = p.map(func=self.process_each_prune, iterable=self.words.items())
+            # remove this
+        for ret_vsum,ret_freq,ret_inverted in ret:
+            vsum+=ret_vsum
+            for key,val in ret_freq.items():
+                freq[key]+=val
+            for key,val in ret_inverted.items():
+                inverted[key]+=val
+
+        return vsum, freq, inverted
     def prune_step_2_freq_inverted(self):
         """
         Return
@@ -509,7 +552,8 @@ class UnigramModel:
         # First,
         always_keep, alternatives = self.prune_step_1_always_keep_alternative()
         # Second, segments all sentences to compute likelihoood with a Unigram LM
-        vsum, freq, inverted = self.prune_step_2_freq_inverted()
+        #vsum, freq, inverted = self.prune_step_2_freq_inverted()
+        vsum, freq, inverted = self.prune_step_2_freq_inverted_pool()
         # Third
         candidate, new_sentencepieces = self.prune_step_3_new_piece_cand(
             always_keep, alternatives, vsum, freq, inverted)
@@ -577,6 +621,7 @@ class UnigramModel:
         if self.use_original_make_seed:
             seed_sentencepieces = self.load_seed_sentencepiece_from_file()
         else:
+            assert "not ok"
             seed_sentencepieces = self.make_seed_sentence_piece()
         return seed_sentencepieces
 
@@ -586,9 +631,9 @@ class UnigramModel:
     def run_EM(self):
         for itr in range(2):  # EM iteration loop
 
-            expected, objective, num_tokens = self.run_e_step_pool()
-            #start = time.time()
             #expected, objective, num_tokens = self.run_e_step_pool()
+            #start = time.time()
+            expected, objective, num_tokens = self.run_e_step_pool()
             #print("e_step_pool time=>",time.time()-start)
             #start = time.time()
             #expected, objective, num_tokens = self.run_e_step()
