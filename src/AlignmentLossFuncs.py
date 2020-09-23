@@ -1,18 +1,27 @@
-from nltk.translate import IBMModel1
-from nltk.translate import IBMModel
-from nltk.translate import Alignment
-from nltk.translate import AlignedSent
+#from nltk.translate import IBMModel1
+#from nltk.translate import IBMModel
+#from nltk.translate import Alignment
+#from nltk.translate import AlignedSent
+import sys
+sys.path.append("../")
+sys.path.append("./translate")
+from translate import IBMModel1
+from translate import IBMModel
+from translate import Alignment
+from translate import AlignedSent
 from math import log,exp
 from Lattice import Lattice
 from collections import defaultdict
 import pickle
 import random
 
+from multiprocessing import Pool
+
 
 from AlignTrainerBase import AlignTrainerBase
 
 #srcとtgtでそれぞれ、2甲斐づつ呼ばれている。？
-def get_viterbi_path(s, U):
+def _get_viterbi_path(s, U):
     """
     Arguments:
         s(str) : sentence
@@ -46,8 +55,10 @@ def get_bitexts(U_s,U_t,sample_rate=1.0):
     for i,(src, tgt) in enumerate(zip(U_s.sentences, U_t.sentences)):
         if i not in use_idx:
             continue
-        src_viterbi = get_viterbi_path(src, U_s)
-        tgt_viterbi = get_viterbi_path(tgt, U_t)
+        #src_viterbi = get_viterbi_path(src, U_s)
+        #tgt_viterbi = get_viterbi_path(tgt, U_t)
+        src_viterbi=U_s.get_viterbi_path(src)
+        tgt_viterbi = U_t.get_viterbi_path(tgt)
         bitexts.append(AlignedSent(tgt_viterbi, src_viterbi))
     return bitexts
 

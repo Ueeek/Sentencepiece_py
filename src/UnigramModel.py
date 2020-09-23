@@ -752,3 +752,12 @@ class UnigramModel:
             for s in f:
                 ret.append(self.decode_one_sent(s))
         return ret
+
+    def get_viterbi_path(self,sent)->list:
+        """
+        sentをviterbi pathに分割
+        """
+        L = Lattice()
+        L.set_sentence(sent)
+        L.populate_nodes(self.SentencePiece.get_pieces(),self.Trie)
+        return L.Viterbi(ret_piece=True)

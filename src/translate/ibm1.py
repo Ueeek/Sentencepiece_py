@@ -63,12 +63,14 @@ Translation: Parameter Estimation. Computational Linguistics, 19 (2),
 263-311.
 """
 
+from multiprocessing import Pool
 from collections import defaultdict
-from nltk.translate import AlignedSent
-from nltk.translate import Alignment
-from nltk.translate import IBMModel
-from nltk.translate.ibm_model import Counts
+from translate import AlignedSent
+from translate import Alignment
+from translate import IBMModel
+from translate.ibm_model import Counts
 import warnings
+import time
 
 
 class IBMModel1(IBMModel):
@@ -134,8 +136,15 @@ class IBMModel1(IBMModel):
             # Set user-defined probabilities
             self.translation_table = probability_tables["translation_table"]
 
+
+        self.n_threads=2
         for n in range(0, iterations):
+            #start = time.time()
             self.train(sentence_aligned_corpus)
+            #print("no para=>",time.time()-start)
+            #start = time.time()
+            #self.train_pool(sentence_aligned_corpus)
+            #print("pool=>",time.time()-start)
 
         self.align_all(sentence_aligned_corpus)
 
@@ -151,6 +160,37 @@ class IBMModel1(IBMModel):
 
         for t in self.trg_vocab:
             self.translation_table[t] = defaultdict(lambda: initial_prob)
+
+    def train_pool(self, parallel_corpus):
+        counts = Counts()
+        with Pool(processes=self.n_threads) as p:
+            ret=p.map(func=self.process_each, iterable=list(parallel_corpus))
+
+        for rec_counts in ret:
+            for t_key in rec_counts.t_given_s.keys():
+                for s_key in rec_counts.t_given_s[t_key].keys():
+                    counts.t_given_s[t_key][s_key]+=rec_counts[t_key][s_key]
+                    counts.any_t_given_s[s_key]+=rec_counts[t_key][s_key]
+
+        #aggregate counts
+        self.maximize_lexical_translation_probabilities(counts)
+
+    def process_each(self,aligned_sentence):
+        counts = Counts()
+        trg_sentence = aligned_sentence.words
+        src_sentence = [None] + aligned_sentence.mots
+
+        # E step (a): Compute normalization factors to weigh counts
+        total_count = self.prob_all_alignments(src_sentence, trg_sentence)
+
+        # E step (b): Collect counts
+        for t in trg_sentence:
+            for s in src_sentence:
+                count = self.prob_alignment_point(s, t)
+                normalized_count = count / total_count[t]
+                counts.t_given_s[t][s] += normalized_count
+                counts.any_t_given_s[s] += normalized_count
+        return counts
 
     def train(self, parallel_corpus):
         counts = Counts()

@@ -280,7 +280,7 @@ def _check_alignment(num_words, num_mots, alignment):
     :raise IndexError: if alignment falls outside the sentence
     """
 
-    assert type(alignment) is Alignment
+    assert type(alignment) is Alignment,"type=>{}".format(type(alignment))
 
     if not all(0 <= pair[0] < num_words for pair in alignment):
         raise IndexError("Alignment is outside boundary of words")

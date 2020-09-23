@@ -292,6 +292,7 @@ class IBMModel2(IBMModel):
 
             best_alignment.append((j, best_alignment_point))
 
+        print("best=>",len(best_alignment))
         sentence_pair.alignment = Alignment(best_alignment)
 
 
