@@ -162,6 +162,7 @@ class AlignTrainerBase:
 
 
         if src_turn:
+            print("src")
             items=self.U_src.SentencePiece.get_pieces().items()
         else:
             print("tgt")
@@ -195,7 +196,7 @@ class AlignTrainerBase:
         print("end calc of align_loss")
         return candidate_s
 
-    def get_bitexts(self,sample_rate=1.0,src_turn=True):
+    def get_bitexts(self, sample_rate=1.0,src_turn=True):
         """
         srcとtgtをbest tokenizeしてreturn　する
         Arguments:
@@ -203,7 +204,6 @@ class AlignTrainerBase:
         Return
             bitexts(list): text pair for train ibm
         """
-        bitexts = []
 
         src_file = self.U_src.file
         tgt_file = self.U_tgt.file
@@ -227,18 +227,23 @@ class AlignTrainerBase:
         use_idx=set(random.sample(range(len_examples),use_examples))
 
 
+        bitexts = []
         print("all:{} use:{} sample_rate:{}".format(len_examples, use_examples,sample_rate))
+        print("len(set)=>",len(use_idx))
         for i,(src, tgt) in enumerate(zip(src_sentences,tgt_sentences)):
             if i not in use_idx:
+                print("skipped")
                 continue
             #src_viterbi = get_viterbi_path(src, U_s)
             #tgt_viterbi = get_viterbi_path(tgt, U_t)
             src_viterbi= self.U_src.get_viterbi_path(src)
             tgt_viterbi = self.U_tgt.get_viterbi_path(tgt)
+
             if src_turn:
                 bitexts.append(AlignedSent(tgt_viterbi, src_viterbi))
             else:
                 bitexts.append(AlignedSent(src_viterbi, tgt_viterbi))
+        print("Bitexts=>",bitexts[:5])
         return bitexts
 
 
