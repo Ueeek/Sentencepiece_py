@@ -8,6 +8,7 @@ from Lattice import Lattice
 import pygtrie
 from util import *
 from multiprocessing import Pool
+from itertools import zip_longest
 
 from pysuffixarray.core import SuffixArray
 import gc
@@ -29,8 +30,8 @@ class UnigramModel:
             self.print_arg_help()
         #from argv
 
-        self.n_threads=1
-
+        #self.n_threads=20
+        self.n_threads= arg_parser(argv,"n_threads",default_val=1)
 
         self.quiet=arg_parser(argv,"quiet",default_val="False")
         self.debug_dir=arg_parser(argv,"debug_dir",default_val="./debug/")
@@ -267,29 +268,6 @@ class UnigramModel:
         assert len(self.required_chars)<=self.vocab_size,"vocab_size is too small, should larger than required_chars_size:{}".format(len(self.required_chars))
 
 
-    def process_each(self,tup):
-        all_sentence_freq = sum(self.words.values())
-
-        expected = defaultdict(int)
-        objective = 0
-        num_tokens = 0
-
-        (key,freq)=tup
-        L = Lattice()
-        L.set_sentence(key)
-        L.populate_nodes(self.SentencePiece.get_pieces(), self.Trie)
-        Z, ret_expected = L.populate_marginal(freq)
-
-        for key, val in ret_expected.items():
-            expected[key] += val
-
-        N = len(L.Viterbi())
-        num_tokens += N
-        #objective -= Z/all_sentence_freq#あとで、all_sentence_freqで割ればいいのでは
-        objective-= Z/all_sentence_freq
-
-        return (expected, objective, num_tokens)
-
     def run_e_step_pool(self):
 
         """E step of EM learning
@@ -302,11 +280,14 @@ class UnigramModel:
         objective = 0
         num_tokens = 0
 
-        #all_sentence_freq = sum(self.words.values())
+        all_sentence_freq = sum(self.words.values())
+
+        #words.items()をthread数のlistに分割する。
+        size=len(self.words.items())//self.n_threads+1
+        iterable=[(items,self.SentencePiece.get_pieces(),self.Trie) for items in  zip_longest(*[iter(self.words.items())]*size)]
 
         with Pool(processes=self.n_threads) as p:
-            ret=p.map(func=self.process_each, iterable=list(sorted(self.words.items())))
-            #ret=p.map(func=process_each, iterable=list(sorted(self.words.items())))
+            ret=p.map(func=process_each_estep, iterable=iterable)
 
         for ret_exp, ret_obj, ret_tokens in ret:
             for key, val in ret_exp.items():
@@ -314,7 +295,9 @@ class UnigramModel:
             num_tokens+=ret_tokens
             objective+=ret_obj
 
-        #objective/=all_sentence_freq
+
+        objective/=all_sentence_freq #orginal実装では、割ってから足している。並列化のため、足してから割る。
+
         return expected, objective, num_tokens
 
     def run_e_step(self):
@@ -417,6 +400,7 @@ class UnigramModel:
         (s,score) = tup
 
         current_piece = self.SentencePiece.get_pieces()
+
         vsum = 0
         freq = defaultdict(int)
         inverted = defaultdict(int)
@@ -444,8 +428,13 @@ class UnigramModel:
         # inverted[key] stires the set of sentence index where the sentencepiece (key) appears
         inverted = defaultdict(int)
 
+
+        size=len(self.words.items())//self.n_threads+1
+        iterable=[(items,self.SentencePiece.get_pieces(),self.Trie) for items in  zip_longest(*[iter(self.words.items())]*size)]
+
         with Pool(processes=self.n_threads) as p:
-            ret = p.map(func=self.process_each_prune, iterable=self.words.items())
+            ret = p.map(func=process_each_prune, iterable=iterable)
+            
             # remove this
         for ret_vsum,ret_freq,ret_inverted in ret:
             vsum+=ret_vsum
@@ -554,6 +543,7 @@ class UnigramModel:
         always_keep, alternatives = self.prune_step_1_always_keep_alternative()
         # Second, segments all sentences to compute likelihoood with a Unigram LM
         #vsum, freq, inverted = self.prune_step_2_freq_inverted()
+
         vsum, freq, inverted = self.prune_step_2_freq_inverted_pool()
         # Third
         candidate, new_sentencepieces = self.prune_step_3_new_piece_cand(
@@ -632,13 +622,8 @@ class UnigramModel:
     def run_EM(self):
         for itr in range(2):  # EM iteration loop
 
-            #expected, objective, num_tokens = self.run_e_step_pool()
-            #start = time.time()
             expected, objective, num_tokens = self.run_e_step_pool()
-            #print("e_step_pool time=>",time.time()-start)
-            #start = time.time()
             #expected, objective, num_tokens = self.run_e_step()
-            #print("e_step time=>",time.time()-start)
 
             new_sentencepieces = self.run_m_step(expected)
 
@@ -762,3 +747,57 @@ class UnigramModel:
         L.set_sentence(sent)
         L.populate_nodes(self.SentencePiece.get_pieces(),self.Trie)
         return L.Viterbi(ret_piece=True)
+
+
+def process_each_estep(tup):
+
+    expected = defaultdict(int)
+    objective = 0
+    num_tokens = 0
+
+    (items,pieces,trie)=tup
+    L = Lattice()
+    for item in items:
+        if item is None:
+            continue
+        (key,freq)=item
+        L.set_sentence(key)
+        L.populate_nodes(pieces,trie)
+        Z, ret_expected = L.populate_marginal(freq)
+
+        for key, val in ret_expected.items():
+            expected[key] += val
+
+        N = len(L.Viterbi())
+        num_tokens += N
+        objective-= Z
+    return (expected, objective, num_tokens)
+
+def process_each_prune(tup):
+    """
+    poolで呼ばれる関数。
+    classのなかにかくと、classごとcopyされてeach processに渡される。
+    それを防ぐために、外に書く
+
+    1文ずつの処理。(sent,piece,trie)よりも、まとめた方が早い(sent_list, piece,trie)
+    """
+    (items,piece,trie) = tup
+
+    vsum = 0
+    freq = defaultdict(int)
+    inverted = defaultdict(int)
+
+    L = Lattice()
+    for item in items:
+        if item is None:
+            continue
+
+        (s,score) = item
+        vsum += score
+        L.set_sentence(s)
+        L.populate_nodes(piece, trie)
+
+        for word in L.Viterbi(ret_piece=True):
+            freq[word] += score
+            inverted[word] += score
+    return (vsum,freq,inverted)

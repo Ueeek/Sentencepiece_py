@@ -54,6 +54,14 @@ class Lattice:
         self.begin_nodes_ = None
         self.end_nodes_ = None
 
+    def clear(self):
+        self.begin_nodes_=None
+        self.end_nodes_=None
+        self.nodes=dict()
+        self.surface=None
+        self.surfaces=None
+        self.size=None
+
     def get_bos_nodes(self) -> int:
         """ return bos node id
         """
@@ -67,6 +75,8 @@ class Lattice:
     def set_sentence(self, s: str):
         """ set sentence into Lattice
         """
+
+        self.clear()
 
         self.surface = s
         surfaces = [s[i:] for i in range(len(s))]  # all suffixes
