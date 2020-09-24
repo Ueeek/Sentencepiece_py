@@ -39,10 +39,10 @@ class AlignTrainerBase:
 
     #@abstractmethod
     def align_src_func(self,always_keep,alternatives,freq):
-        pass
+        raise NotImplementedError
     #@abstractmethod
     def align_tgt_func(self,always_keep,alternatives,freq):
-        pass
+        raise NotImplementedError
 
 
     def prune_step_with_align(self ,alpha=0.01):
@@ -205,14 +205,30 @@ class AlignTrainerBase:
         """
         bitexts = []
 
+        src_file = self.U_src.file
+        tgt_file = self.U_tgt.file
 
-        len_examples=len(self.U_src.sentences)
+
+        src_sentences=[]
+        tgt_sentences=[]
+
+        print("load_sentence")
+        with open(src_file) as f:
+            for s in f:
+                src_sentences.append(s)
+
+        with open(tgt_file) as f:
+            for t in f:
+                tgt_sentences.append(t)
+        print("load_end")
+
+        len_examples=len(src_sentences)
         use_examples= int(len_examples*sample_rate)
         use_idx=set(random.sample(range(len_examples),use_examples))
 
 
         print("all:{} use:{} sample_rate:{}".format(len_examples, use_examples,sample_rate))
-        for i,(src, tgt) in enumerate(zip(self.U_src.sentences, self.U_tgt.sentences)):
+        for i,(src, tgt) in enumerate(zip(src_sentences,tgt_sentences)):
             if i not in use_idx:
                 continue
             #src_viterbi = get_viterbi_path(src, U_s)

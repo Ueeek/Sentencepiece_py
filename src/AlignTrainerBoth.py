@@ -19,6 +19,6 @@ class AlignTrainerBoth(AlignTrainerBase):
     
     def train(self,alpha=0.01,back_up_interval=-1,back_up_file=None,sample_rate=1.0,em_steps=2):
         self.sample_rate=sample_rate
-        self.em_steps=2
+        self.em_steps=em_steps
         super().train(alpha,back_up_interval,back_up_file)
 
