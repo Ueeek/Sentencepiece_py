@@ -12,6 +12,8 @@ from translate import IBMModel
 from translate import Alignment
 from translate import AlignedSent
 from Lattice import Lattice
+import time
+from itertools import zip_longest
 
 from multiprocessing import Pool
 
@@ -54,8 +56,8 @@ class AlignTrainerBase:
         always_keep_s, alternatives_s = self.U_src.prune_step_1_always_keep_alternative()
         always_keep_t, alternatives_t = self.U_tgt.prune_step_1_always_keep_alternative()
 
-        vsum_s, freq_s, inverted_s = self.U_src.prune_step_2_freq_inverted()
-        vsum_t, freq_t, inverted_t = self.U_tgt.prune_step_2_freq_inverted()
+        vsum_s, freq_s, inverted_s = self.U_src.prune_step_2_freq_inverted_pool()
+        vsum_t, freq_t, inverted_t = self.U_tgt.prune_step_2_freq_inverted_pool()
 
         LM_loss_s, new_sentencepieces_s = self.U_src.prune_step_3_new_piece_cand(
             always_keep_s, alternatives_s, vsum_s, freq_s, inverted_s)
@@ -133,11 +135,16 @@ class AlignTrainerBase:
         """
 
         print("get_bitexts src=>",src_turn)
-        bitexts = self.get_bitexts(sample_rate=sample_rate,src_turn=src_turn)
+
+        start = time.time()
+        bitexts = self.get_bitexts_pool(sample_rate=sample_rate,src_turn=src_turn)
+        print("get bitexts Pool time>",time.time()-start)
+
         # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
         print("train ibm {}steps",em_steps)
+        start = time.time()
         ibm1 = IBMModel1(bitexts, em_steps)
-        print("finish train ibm")
+        print("finish train ibm->",time.time()-start)
 
 
         # for each piece x,get words which aligns to x
@@ -145,7 +152,7 @@ class AlignTrainerBase:
         AlignedWords = defaultdict(lambda: defaultdict(int))
         AlignedCnt = defaultdict(int)
 
-        print("Bitexts=>",bitexts[:5])
+        #Poolできるよ。
         for bitext in bitexts:
             # align=(idx_in_tgt,idx_in_src)
             tgt, src, align = bitext.words, bitext.mots, bitext.alignment
@@ -214,6 +221,7 @@ class AlignTrainerBase:
         bitexts = []
         print("all:{} use:{} sample_rate:{}".format(len_examples, use_examples,sample_rate))
         print("len(set)=>",len(use_idx))
+
         for i,(src, tgt) in enumerate(zip(self.src_sentences,self.tgt_sentences)):
             if i not in use_idx:
                 print("skipped")
@@ -229,4 +237,62 @@ class AlignTrainerBase:
                 bitexts.append(AlignedSent(src_viterbi, tgt_viterbi))
         return bitexts
 
+    def get_bitexts_pool(self,sample_rate=1.0,src_turn=True):
+        len_examples=len(self.src_sentences)
+        use_examples= int(len_examples*sample_rate)
+        use_idx=set(random.sample(range(len_examples),use_examples))
 
+
+        bitexts = []
+        print("all:{} use:{} sample_rate:{}".format(len_examples, use_examples,sample_rate))
+        print("len(set)=>",len(use_idx))
+
+
+
+        size=len(self.src_sentences)//20 +1
+        iterable=[(items,self.U_src.SentencePiece.get_pieces(),self.U_src.Trie) for items in  zip_longest(*[iter(self.src_sentences)]*size)]
+
+        #TODO ここ、src->tgt　とtgt->srcで二回やってるのよな。(割と時間がかかる処理)
+        print("src_viterbi")
+        with Pool(processes=20) as p:
+            src_viterbis=p.map(func=process_each,iterable=iterable)
+
+        iterable=[(items,self.U_tgt.SentencePiece.get_pieces(),self.U_tgt.Trie) for items in  zip_longest(*[iter(self.tgt_sentences)]*size)]
+        print("tgt_viterbi")
+        with Pool(processes=20) as p:
+            tgt_viterbis=p.map(func=process_each,iterable=iterable)
+
+
+
+        print("create bitexts")
+        cnt=0
+        for ret_src, ret_tgt in zip(src_viterbis,tgt_viterbis):
+            for src,tgt in zip(ret_src,ret_tgt):
+                if cnt not in use_idx:
+                    print("skipped")
+                    cnt+=1
+                    continue
+                if src_turn:
+                    bitexts.append(AlignedSent(tgt, src))
+                else:
+                    bitexts.append(AlignedSent(src, tgt))
+                cnt+=1
+
+
+        return bitexts
+
+def process_each(tup):
+    (items,piece,trie) = tup
+
+    L = Lattice()
+
+    ret=[]
+    for item in items:
+        if item is None:
+            continue
+
+        L.set_sentence(item)
+        L.populate_nodes(piece, trie)
+        ret.append(L.Viterbi(ret_piece=True))
+
+    return ret

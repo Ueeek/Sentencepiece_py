@@ -32,6 +32,7 @@ class UnigramModel:
 
         #self.n_threads=20
         self.n_threads= arg_parser(argv,"n_threads",default_val=1)
+        self.dummy_vocab_size = arg_parser(argv,"dummy_vocab_size",default_val=30000)
 
         self.quiet=arg_parser(argv,"quiet",default_val="False")
         self.debug_dir=arg_parser(argv,"debug_dir",default_val="./debug/")
@@ -107,7 +108,7 @@ class UnigramModel:
                 #TODO optionはこれでいいのか?
                 #res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(self.vocab_size)])
                 #res = subprocess.run(["../../sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(self.seed_sentence_piece_size)])
-                res = subprocess.run(["../../../sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(900)])
+                res = subprocess.run(["../../../sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(self.dummy_vocab_size)])
                 #res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
                 #res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
             except:
