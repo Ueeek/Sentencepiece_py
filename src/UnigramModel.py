@@ -225,10 +225,11 @@ class UnigramModel:
         """ load sentence from file
         引数のpathはdecodeとかencodeの時に使う
         """
+
         if path is None:
             path = self.file
 
-        #self.sentences = []
+        sentences = []
         self.words = defaultdict(int)
         chars=defaultdict(int)
         with open(path,encoding="utf-8") as f:
@@ -237,13 +238,14 @@ class UnigramModel:
                 # _s = "_"+"_".join(s.split(" "))#全角と半角のspaceを区別するか(\tとか\nもsplitされるs.split())
                 s = s.replace("\n","")#\nを消す感じ
                 _s = self.sep_voc + self.sep_voc.join(s.split(" "))
+
+                sentences.append(_s)
                 for w in s.split(" "):
                     self.words[self.sep_voc+w] += 1
                     for c in w:
                         if c=="\t":
                             continue
                         chars[c]+=1
-                #self.sentences.append(_s)
 
         #self.sentences = sentences
         #self.words = words
@@ -266,6 +268,9 @@ class UnigramModel:
                 
         assert self.character_coverage==1,"unk 処理 is not implemented at load sentences #TODO"
         assert len(self.required_chars)<=self.vocab_size,"vocab_size is too small, should larger than required_chars_size:{}".format(len(self.required_chars))
+
+
+        return sentences
 
 
     def run_e_step_pool(self):

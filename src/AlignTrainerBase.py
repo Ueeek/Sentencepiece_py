@@ -25,8 +25,8 @@ class AlignTrainerBase:
     def prepare_UnigramModel(self):
         # load sentence
         print("load_sentence")
-        self.U_src.load_sentence()
-        self.U_tgt.load_sentence()
+        self.src_sentences=self.U_src.load_sentence()
+        self.tgt_sentences=self.U_tgt.load_sentence()
         # seed_piece
         print("make seed")
 
@@ -145,6 +145,7 @@ class AlignTrainerBase:
         AlignedWords = defaultdict(lambda: defaultdict(int))
         AlignedCnt = defaultdict(int)
 
+        print("Bitexts=>",bitexts[:5])
         for bitext in bitexts:
             # align=(idx_in_tgt,idx_in_src)
             tgt, src, align = bitext.words, bitext.mots, bitext.alignment
@@ -205,24 +206,7 @@ class AlignTrainerBase:
             bitexts(list): text pair for train ibm
         """
 
-        src_file = self.U_src.file
-        tgt_file = self.U_tgt.file
-
-
-        src_sentences=[]
-        tgt_sentences=[]
-
-        print("load_sentence")
-        with open(src_file) as f:
-            for s in f:
-                src_sentences.append(s)
-
-        with open(tgt_file) as f:
-            for t in f:
-                tgt_sentences.append(t)
-        print("load_end")
-
-        len_examples=len(src_sentences)
+        len_examples=len(self.src_sentences)
         use_examples= int(len_examples*sample_rate)
         use_idx=set(random.sample(range(len_examples),use_examples))
 
@@ -230,7 +214,7 @@ class AlignTrainerBase:
         bitexts = []
         print("all:{} use:{} sample_rate:{}".format(len_examples, use_examples,sample_rate))
         print("len(set)=>",len(use_idx))
-        for i,(src, tgt) in enumerate(zip(src_sentences,tgt_sentences)):
+        for i,(src, tgt) in enumerate(zip(self.src_sentences,self.tgt_sentences)):
             if i not in use_idx:
                 print("skipped")
                 continue
@@ -243,7 +227,6 @@ class AlignTrainerBase:
                 bitexts.append(AlignedSent(tgt_viterbi, src_viterbi))
             else:
                 bitexts.append(AlignedSent(src_viterbi, tgt_viterbi))
-        print("Bitexts=>",bitexts[:5])
         return bitexts
 
 
