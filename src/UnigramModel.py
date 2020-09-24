@@ -55,7 +55,7 @@ class UnigramModel:
         self.debug_cnt=0
         self.SentencePiece = SentencePiece()
         self.Trie = None
-        self.sentences = []
+        #self.sentences = []
         self.words = []
         self.desired_voc_size = int(self.vocab_size*1.1)
         self.required_chars=dict()
@@ -228,7 +228,7 @@ class UnigramModel:
         if path is None:
             path = self.file
 
-        self.sentences = []
+        #self.sentences = []
         self.words = defaultdict(int)
         chars=defaultdict(int)
         with open(path,encoding="utf-8") as f:
@@ -243,7 +243,7 @@ class UnigramModel:
                         if c=="\t":
                             continue
                         chars[c]+=1
-                self.sentences.append(_s)
+                #self.sentences.append(_s)
 
         #self.sentences = sentences
         #self.words = words
@@ -681,8 +681,9 @@ class UnigramModel:
         Returns:
             encode_sentences(list):
         """
-        encode_sentences = [self.encode_one_sent(s) for s in self.sentences]
-        return encode_sentences
+        raise NotImplementedError
+        #encode_sentences = [self.encode_one_sent(s) for s in self.sentences]
+        #return encode_sentences
 
 
     def decode_one_piece(self,piece:str):
