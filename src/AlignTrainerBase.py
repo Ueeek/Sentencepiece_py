@@ -13,6 +13,8 @@ from translate import Alignment
 from translate import AlignedSent
 from Lattice import Lattice
 
+from multiprocessing import Pool
+
 class AlignTrainerBase:
     def __init__(self,arg_src, arg_tgt):
 
@@ -222,3 +224,5 @@ class AlignTrainerBase:
             else:
                 bitexts.append(AlignedSent(src_viterbi, tgt_viterbi))
         return bitexts
+
+

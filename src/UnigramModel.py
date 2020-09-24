@@ -306,6 +306,7 @@ class UnigramModel:
 
         with Pool(processes=self.n_threads) as p:
             ret=p.map(func=self.process_each, iterable=list(sorted(self.words.items())))
+            #ret=p.map(func=process_each, iterable=list(sorted(self.words.items())))
 
         for ret_exp, ret_obj, ret_tokens in ret:
             for key, val in ret_exp.items():
