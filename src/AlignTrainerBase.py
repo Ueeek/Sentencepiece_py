@@ -170,7 +170,7 @@ class AlignTrainerBase:
 
         print("train ibm {}steps".format(self.em_steps))
         start = time.time()
-        ibm1 = IBMModel1(bitexts, self.em_steps,parallel=self.align_parallel)
+        ibm1 = IBMModel1(bitexts, self.em_steps,parallel=self.align_parallel,n_threads=self.n_threads)
         print("finish train ibm->",time.time()-start)
 
 

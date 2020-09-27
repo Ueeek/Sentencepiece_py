@@ -110,7 +110,7 @@ class IBMModel1(IBMModel):
 
     """
 
-    def __init__(self, sentence_aligned_corpus, iterations, probability_tables=None,parallel=False):
+    def __init__(self, sentence_aligned_corpus, iterations, probability_tables=None,parallel=False,n_threads=1):
         """
         Train on ``sentence_aligned_corpus`` and create a lexical
         translation model.
@@ -139,7 +139,7 @@ class IBMModel1(IBMModel):
             # Set user-defined probabilities
             self.translation_table = probability_tables["translation_table"]
 
-        self.n_threads=2
+        self.n_threads=n_threads
         for n in range(0, iterations):
             start = time.time()
             if parallel:
