@@ -22,6 +22,12 @@ class AlignTrainerBase:
 
         self.U_src = UnigramModel(arg_src)
         self.U_tgt = UnigramModel(arg_tgt)
+
+        self.n_threads=self.U_src.n_threads
+        assert self.U_src.n_threads==self.U_tgt.n_threads #別に違ってもいいけど
+
+        self.src_tokenised=[]
+        self.tgt_tokenised=[]
         print("init")
 
     def prepare_UnigramModel(self):
@@ -47,7 +53,7 @@ class AlignTrainerBase:
         raise NotImplementedError
 
 
-    def prune_step_with_align(self ,alpha=0.01):
+    def prune_step_with_align(self):
         """
         train
         :param: pruneLoss=(1-alpha)*LMloss+(alpha)*AlignLoss
@@ -64,15 +70,19 @@ class AlignTrainerBase:
         LM_loss_t, new_sentencepieces_t = self.U_tgt.prune_step_3_new_piece_cand(
             always_keep_t, alternatives_t, vsum_t, freq_t, inverted_t)
 
+        start = time.time()
+        self.tokenize_viterbi_pool()
+        print("time To tokenize=>",time.time()-start)
+
         align_loss_s = self.align_src_func(always_keep_s,alternatives_s,freq_s)
         align_loss_t = self.align_tgt_func(always_keep_t,alternatives_t,freq_t)
 
         joint_loss_s = dict()
         joint_loss_t = dict()
         for key in LM_loss_s.keys():
-            joint_loss_s[key] = (1-alpha)*LM_loss_s[key]+alpha*align_loss_s[key]
+            joint_loss_s[key] = (1-self.alpha)*LM_loss_s[key]+self.alpha*align_loss_s[key]
         for key in LM_loss_t.keys():
-            joint_loss_t[key] = (1-alpha)*LM_loss_t[key]+alpha*align_loss_t[key]
+            joint_loss_t[key] = (1-self.alpha)*LM_loss_t[key]+self.alpha*align_loss_t[key]
 
         new_piece_s =self. U_src.prune_step_4_prune_candidate(
             joint_loss_s, new_sentencepieces_s)
@@ -83,13 +93,20 @@ class AlignTrainerBase:
 
         return new_piece_s, new_piece_t
 
-    def train(self,alpha=0.01,back_up_interval=-1,back_up_file=None):
+    def train(self,alpha=0.01,sample_rate=1.0, em_steps=5,back_up_interval=-1,back_up_file=None):
 
-        assert back_up_interval==-1 or back_up_file is not None, "set backup path"
+        self.alpha=alpha
+        self.sample_rate=sample_rate
+        self.em_steps=em_steps
+        self.back_up_interval=back_up_interval
+        self.back_up_file=back_up_file
+
+        assert self.back_up_interval==-1 or self.back_up_file is not None, "set backup path"
         print("Train align")
         self.prepare_UnigramModel()
         # Start EM
         print("Seed voc size=> src:{} tgt:{}\nStart EM training".format(self.U_src.SentencePiece.get_piece_size(),self.U_tgt.SentencePiece.get_piece_size()))
+
         step_cnt = 0
         while True:
             step_cnt += 1
@@ -101,12 +118,12 @@ class AlignTrainerBase:
                 break
 
             print("Align")
-            new_piece_src, new_piece_tgt= self.prune_step_with_align(alpha=alpha)
+            new_piece_src, new_piece_tgt= self.prune_step_with_align()
 
             self.U_src.set_sentence_piece(new_piece_src)
             self.U_tgt.set_sentence_piece(new_piece_tgt)
 
-            if back_up_interval>=1 and step_cnt%back_up_interval==0:
+            if self.back_up_interval>=1 and step_cnt%self.back_up_interval==0:
                 with open(back_up_file+"_{}.src.pickle".format(step_cnt),"wb") as f:
                     pickle.dump(self.U_src,f)
                 with open(back_up_file+"_{}.tgt.pickle".format(step_cnt),"wb") as f:
@@ -117,7 +134,7 @@ class AlignTrainerBase:
         self.U_src.finalize_sentencepiece()
         self.U_tgt.finalize_sentencepiece()
 
-    def alignment_loss(self,always_keep_s, alternatives_s, freq_s,sample_rate=1.0,em_steps=2,src_turn=True):
+    def alignment_loss(self,always_keep_s, alternatives_s, freq_s,src_turn=True):
         """ alignlossを求めたい
         U_sにalignment lossを加える
         * X,Y,A全てbestを使って近似
@@ -136,14 +153,23 @@ class AlignTrainerBase:
 
         print("get_bitexts src=>",src_turn)
 
-        start = time.time()
-        bitexts = self.get_bitexts_pool(sample_rate=sample_rate,src_turn=src_turn)
-        print("get bitexts Pool time>",time.time()-start)
+        #関数の外でやる
+        #start = time.time()
+        #self.tokenize_viterbi_pool(sample_rate=sample_rate,src_turn=src_turn)
+        #print("get bitexts Pool time>",time.time()-start)
 
         # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
-        print("train ibm {}steps",em_steps)
+        bitexts=[]
+        if src_turn:
+            for src,tgt in zip(self.src_tokenised,self.tgt_tokenised):
+                bitexts.append(AlignedSent(tgt,src))
+        else:
+            for src,tgt in zip(self.src_tokenised,self.tgt_tokenised):
+                bitexts.append(AlignedSent(src,tgt))
+
+        print("train ibm {}steps".format(self.em_steps))
         start = time.time()
-        ibm1 = IBMModel1(bitexts, em_steps)
+        ibm1 = IBMModel1(bitexts, self.em_steps)
         print("finish train ibm->",time.time()-start)
 
 
@@ -204,82 +230,43 @@ class AlignTrainerBase:
         print("end calc of align_loss")
         return candidate_s
 
-    def get_bitexts(self, sample_rate=1.0,src_turn=True):
-        """
-        srcとtgtをbest tokenizeしてreturn　する
-        Arguments:
-            U_s,U_t: Unigram model for source and tgt respectively
-        Return
-            bitexts(list): text pair for train ibm
-        """
+    def tokenize_viterbi_pool(self):
+
+        self.src_tokenised=[]
+        self.tgt_tokenised=[]
 
         len_examples=len(self.src_sentences)
-        use_examples= int(len_examples*sample_rate)
+        use_examples= int(len_examples*self.sample_rate)
         use_idx=set(random.sample(range(len_examples),use_examples))
 
 
-        bitexts = []
-        print("all:{} use:{} sample_rate:{}".format(len_examples, use_examples,sample_rate))
-        print("len(set)=>",len(use_idx))
-
-        for i,(src, tgt) in enumerate(zip(self.src_sentences,self.tgt_sentences)):
-            if i not in use_idx:
-                print("skipped")
-                continue
-            #src_viterbi = get_viterbi_path(src, U_s)
-            #tgt_viterbi = get_viterbi_path(tgt, U_t)
-            src_viterbi= self.U_src.get_viterbi_path(src)
-            tgt_viterbi = self.U_tgt.get_viterbi_path(tgt)
-
-            if src_turn:
-                bitexts.append(AlignedSent(tgt_viterbi, src_viterbi))
-            else:
-                bitexts.append(AlignedSent(src_viterbi, tgt_viterbi))
-        return bitexts
-
-    def get_bitexts_pool(self,sample_rate=1.0,src_turn=True):
-        len_examples=len(self.src_sentences)
-        use_examples= int(len_examples*sample_rate)
-        use_idx=set(random.sample(range(len_examples),use_examples))
-
-
-        bitexts = []
-        print("all:{} use:{} sample_rate:{}".format(len_examples, use_examples,sample_rate))
+        print("all:{} use:{} sample_rate:{}".format(len_examples, use_examples,self.sample_rate))
         print("len(set)=>",len(use_idx))
 
 
+        size=use_examples//self.n_threads +1
+        use_src =[s for i,s in enumerate(self.src_sentences) if i in use_idx]
+        iterable=[(items,self.U_src.SentencePiece.get_pieces(),self.U_src.Trie) for items in  zip_longest(*[iter(use_src)]*size)]
 
-        size=len(self.src_sentences)//20 +1
-        iterable=[(items,self.U_src.SentencePiece.get_pieces(),self.U_src.Trie) for items in  zip_longest(*[iter(self.src_sentences)]*size)]
-
-        #TODO ここ、src->tgt　とtgt->srcで二回やってるのよな。(割と時間がかかる処理)
         print("src_viterbi")
-        with Pool(processes=20) as p:
+        with Pool(processes=self.n_threads) as p:
             src_viterbis=p.map(func=process_each,iterable=iterable)
 
-        iterable=[(items,self.U_tgt.SentencePiece.get_pieces(),self.U_tgt.Trie) for items in  zip_longest(*[iter(self.tgt_sentences)]*size)]
+        use_tgt =[t for i,t in enumerate(self.tgt_sentences) if i in use_idx]
+        iterable=[(items,self.U_tgt.SentencePiece.get_pieces(),self.U_tgt.Trie) for items in  zip_longest(*[iter(use_tgt)]*size)]
         print("tgt_viterbi")
-        with Pool(processes=20) as p:
+        with Pool(processes=self.n_threads) as p:
             tgt_viterbis=p.map(func=process_each,iterable=iterable)
 
 
 
         print("create bitexts")
-        cnt=0
         for ret_src, ret_tgt in zip(src_viterbis,tgt_viterbis):
             for src,tgt in zip(ret_src,ret_tgt):
-                if cnt not in use_idx:
-                    print("skipped")
-                    cnt+=1
-                    continue
-                if src_turn:
-                    bitexts.append(AlignedSent(tgt, src))
-                else:
-                    bitexts.append(AlignedSent(src, tgt))
-                cnt+=1
+                self.src_tokenised.append(src)
+                self.tgt_tokenised.append(tgt)
 
 
-        return bitexts
 
 def process_each(tup):
     (items,piece,trie) = tup

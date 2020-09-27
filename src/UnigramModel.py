@@ -628,7 +628,9 @@ class UnigramModel:
     def run_EM(self):
         for itr in range(2):  # EM iteration loop
 
+            start = time.time()
             expected, objective, num_tokens = self.run_e_step_pool()
+            print("Estep=>",time.time()-start)
             #expected, objective, num_tokens = self.run_e_step()
 
             new_sentencepieces = self.run_m_step(expected)
