@@ -93,13 +93,14 @@ class AlignTrainerBase:
 
         return new_piece_s, new_piece_t
 
-    def train(self,alpha=0.01,sample_rate=1.0, em_steps=5,back_up_interval=-1,back_up_file=None):
+    def train(self,alpha=0.01,sample_rate=1.0, em_steps=5,back_up_interval=-1,back_up_file=None, align_parallel=False):
 
         self.alpha=alpha
         self.sample_rate=sample_rate
         self.em_steps=em_steps
         self.back_up_interval=back_up_interval
         self.back_up_file=back_up_file
+        self.align_parallel = align_parallel
 
         assert self.back_up_interval==-1 or self.back_up_file is not None, "set backup path"
         print("Train align")
@@ -169,7 +170,7 @@ class AlignTrainerBase:
 
         print("train ibm {}steps".format(self.em_steps))
         start = time.time()
-        ibm1 = IBMModel1(bitexts, self.em_steps)
+        ibm1 = IBMModel1(bitexts, self.em_steps,parallel=self.align_parallel)
         print("finish train ibm->",time.time()-start)
 
 

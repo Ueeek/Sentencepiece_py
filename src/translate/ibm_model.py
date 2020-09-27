@@ -522,12 +522,14 @@ class Counts(object):
     """
 
     def __init__(self):
-        self.t_given_s = defaultdict(lambda: defaultdict(lambda: 0.0))
-        self.any_t_given_s = defaultdict(lambda: 0.0)
+        #self.t_given_s = defaultdict(lambda: defaultdict(lambda: 0.0))
+        self.t_given_s = dict()
+        #self.any_t_given_s = defaultdict(lambda: 0.0)
+        self.any_t_given_s = dict()
         self.p0 = 0.0
         self.p1 = 0.0
-        self.fertility = defaultdict(lambda: defaultdict(lambda: 0.0))
-        self.fertility_for_any_phi = defaultdict(lambda: 0.0)
+        #self.fertility = defaultdict(lambda: defaultdict(lambda: 0.0))
+        #self.fertility_for_any_phi = defaultdict(lambda: 0.0)
 
     def update_lexical_translation(self, count, alignment_info, j):
         i = alignment_info.alignment[j]
@@ -546,5 +548,5 @@ class Counts(object):
         for i in range(0, len(alignment_info.src_sentence)):
             s = alignment_info.src_sentence[i]
             phi = alignment_info.fertility_of_i(i)
-            self.fertility[phi][s] += count
-            self.fertility_for_any_phi[s] += count
+            #self.fertility[phi][s] += count
+            #self.fertility_for_any_phi[s] += count

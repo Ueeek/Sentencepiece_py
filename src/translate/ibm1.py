@@ -12,6 +12,8 @@
 # URL: <http://nltk.org/>
 # For license information, see LICENSE.TXT
 
+MIN_PROB=1.0e-12
+
 """
 Lexical translation model that ignores word order.
 
@@ -71,6 +73,8 @@ from translate import IBMModel
 from translate.ibm_model import Counts
 import warnings
 import time
+import copy
+from itertools import zip_longest
 
 
 class IBMModel1(IBMModel):
@@ -106,7 +110,7 @@ class IBMModel1(IBMModel):
 
     """
 
-    def __init__(self, sentence_aligned_corpus, iterations, probability_tables=None):
+    def __init__(self, sentence_aligned_corpus, iterations, probability_tables=None,parallel=False):
         """
         Train on ``sentence_aligned_corpus`` and create a lexical
         translation model.
@@ -129,27 +133,28 @@ class IBMModel1(IBMModel):
         :type probability_tables: dict[str]: object
         """
         super(IBMModel1, self).__init__(sentence_aligned_corpus)
-
         if probability_tables is None:
             self.set_uniform_probabilities(sentence_aligned_corpus)
         else:
             # Set user-defined probabilities
             self.translation_table = probability_tables["translation_table"]
 
-
         self.n_threads=2
         for n in range(0, iterations):
-            #start = time.time()
-            self.train(sentence_aligned_corpus)
-            #print("no para=>",time.time()-start)
-            #start = time.time()
-            #self.train_pool(sentence_aligned_corpus)
-            #print("pool=>",time.time()-start)
+            start = time.time()
+            if parallel:
+                self.train_pool(sentence_aligned_corpus)
+                print("para=>",time.time()-start)
+            else:
+                self.train(sentence_aligned_corpus)
+                print("no para=>",time.time()-start)
 
         self.align_all(sentence_aligned_corpus)
 
     def set_uniform_probabilities(self, sentence_aligned_corpus):
         initial_prob = 1 / len(self.trg_vocab)
+
+        print("set uniform called=>",initial_prob)
         if initial_prob < IBMModel.MIN_PROB:
             warnings.warn(
                 "Target language vocabulary is too large ("
@@ -163,34 +168,35 @@ class IBMModel1(IBMModel):
 
     def train_pool(self, parallel_corpus):
         counts = Counts()
+
+        size=len(parallel_corpus)//self.n_threads+1
+
+        data=dict()
+        for key in self.translation_table.keys():
+            data[key]=dict(self.translation_table[key])
+
+        initial_prob = 1 / len(self.trg_vocab)
+        iterable=[(items, data,initial_prob) for items in  zip_longest(*[iter(parallel_corpus)]*size)]
+
         with Pool(processes=self.n_threads) as p:
-            ret=p.map(func=self.process_each, iterable=list(parallel_corpus))
+            ret=p.map(func=process_each, iterable=iterable)
+
 
         for rec_counts in ret:
             for t_key in rec_counts.t_given_s.keys():
                 for s_key in rec_counts.t_given_s[t_key].keys():
-                    counts.t_given_s[t_key][s_key]+=rec_counts[t_key][s_key]
-                    counts.any_t_given_s[s_key]+=rec_counts[t_key][s_key]
+
+                    if t_key not in counts.t_given_s:
+                        counts.t_given_s[t_key]=defaultdict(lambda : 0.0)
+                    if s_key not in counts.any_t_given_s:
+                        counts.any_t_given_s[s_key] = 0.0
+
+                    counts.t_given_s[t_key][s_key]+=rec_counts.t_given_s[t_key][s_key]
+                    counts.any_t_given_s[s_key]+=rec_counts.t_given_s[t_key][s_key]
 
         #aggregate counts
         self.maximize_lexical_translation_probabilities(counts)
 
-    def process_each(self,aligned_sentence):
-        counts = Counts()
-        trg_sentence = aligned_sentence.words
-        src_sentence = [None] + aligned_sentence.mots
-
-        # E step (a): Compute normalization factors to weigh counts
-        total_count = self.prob_all_alignments(src_sentence, trg_sentence)
-
-        # E step (b): Collect counts
-        for t in trg_sentence:
-            for s in src_sentence:
-                count = self.prob_alignment_point(s, t)
-                normalized_count = count / total_count[t]
-                counts.t_given_s[t][s] += normalized_count
-                counts.any_t_given_s[s] += normalized_count
-        return counts
 
     def train(self, parallel_corpus):
         counts = Counts()
@@ -206,6 +212,13 @@ class IBMModel1(IBMModel):
                 for s in src_sentence:
                     count = self.prob_alignment_point(s, t)
                     normalized_count = count / total_count[t]
+
+                    if t not in counts.t_given_s:
+                        counts.t_given_s[t]=dict()
+                    if s not in counts.t_given_s[t]:
+                        counts.t_given_s[t][s]=0.0
+                    if s not in counts.any_t_given_s:
+                        counts.any_t_given_s[s]=0.0
                     counts.t_given_s[t][s] += normalized_count
                     counts.any_t_given_s[s] += normalized_count
 
@@ -288,3 +301,50 @@ class IBMModel1(IBMModel):
             best_alignment.append((j, best_alignment_point))
 
         sentence_pair.alignment = Alignment(best_alignment)
+
+def dd():
+    return defaultdict(int)
+
+def process_each(tup):
+
+    (items,translation_table_dict,initial_prob) = tup
+
+    translation_table=defaultdict()
+    for key in translation_table_dict.keys():
+        translation_table[key]=defaultdict(lambda :initial_prob)
+        for key_s in translation_table_dict[key].keys():
+            translation_table[key][key_s]=translation_table_dict[key][key_s]
+
+
+    counts = Counts()
+    for aligned_sentence in items:
+        if aligned_sentence is None:
+            continue
+        trg_sentence = aligned_sentence.words
+        src_sentence = [None] + aligned_sentence.mots
+
+        # E step (a): Compute normalization factors to weigh counts
+        total_count=defaultdict(lambda: 0.0)
+        for t in trg_sentence:
+            for s in src_sentence:
+                total_count[t] += translation_table[t][s]
+
+        # E step (b): Collect counts
+        for t in trg_sentence:
+            for s in src_sentence:
+                count = translation_table[t][s]
+                normalized_count = count / total_count[t]
+
+                if t not in counts.t_given_s:
+                    counts.t_given_s[t]=dict()
+
+                if s not in counts.t_given_s[t]:
+                    counts.t_given_s[t][s]=0.0
+
+                if s not in counts.any_t_given_s:
+                    counts.any_t_given_s[s]=0.0
+
+
+                counts.t_given_s[t][s] += normalized_count
+                counts.any_t_given_s[s] += normalized_count
+    return counts
