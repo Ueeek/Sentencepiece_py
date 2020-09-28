@@ -227,6 +227,7 @@ class UnigramModel:
         引数のpathはdecodeとかencodeの時に使う
         """
 
+        print("load_ sentence")
         if path is None:
             path = self.file
 
@@ -247,9 +248,6 @@ class UnigramModel:
                         if c=="\t":
                             continue
                         chars[c]+=1
-
-        #self.sentences = sentences
-        #self.words = words
 
         #determines uequired_chars which must be included in the vocabulary
         accumulated_chars_count=0
@@ -303,37 +301,6 @@ class UnigramModel:
 
 
         objective/=all_sentence_freq #orginal実装では、割ってから足している。並列化のため、足してから割る。
-
-        return expected, objective, num_tokens
-
-    def run_e_step(self):
-
-        """E step of EM learning
-        Return:
-            objective(int): int
-            nun_token(int): sum of the token num of Viterbi path
-            expected(dict): dict[piece]=score of the piece
-        """
-        expected = defaultdict(int)
-        objective = 0
-        num_tokens = 0
-
-        all_sentence_freq = sum(self.words.values())
-
-        for key, freq in sorted(self.words.items()):
-        #for key, freq in self.words.items():
-            L = Lattice()
-            L.set_sentence(key)
-            L.populate_nodes(self.SentencePiece.get_pieces(), self.Trie)
-            Z, ret_expected = L.populate_marginal(freq)
-
-            for key, val in ret_expected.items():
-                expected[key] += val
-
-            N = len(L.Viterbi())
-            num_tokens += N
-            objective -= Z/all_sentence_freq
-
 
         return expected, objective, num_tokens
 
@@ -670,6 +637,7 @@ class UnigramModel:
         self.finalize_sentencepiece()
 
     def encode_one_sent(self, sent):
+        #TODO encode_poolがうまくいくなら決して良い
         """
         Arguments:
             sent(str): sentence piece vocを使って分割する文
@@ -683,18 +651,34 @@ class UnigramModel:
         assert "".join(tokenize_sent.split(" "))==sent
         return tokenize_sent
 
-    def encode(self):
+    def encode(self, corpus):
         """
         self.sentencesを全てencode_one()して、listにしてreturn?
+        corpus: path to  corpus
+
         Returns:
             encode_sentences(list):
         """
-        raise NotImplementedError
-        #encode_sentences = [self.encode_one_sent(s) for s in self.sentences]
-        #return encode_sentences
+        sentences = self.load_sentence(path=corpus)
+        size = len(sentences)//self.n_threads+1
+
+        iterable = [(items, self.SentencePiece.get_pieces(), self.Trie) for items in zip_longest(*[iter(sentences)]*size)]
+
+        with Pool(processes=self.n_threads) as p:
+            ret=p.map(func=process_each_encode, iterable=iterable)
+
+        encode_sent=[]
+        for ss in ret:
+            for s in ss:
+                encode_sent.append(s)
+
+        assert all("".join(a.aplit(" "))==b for a,b in zip(encode_sent[:10], sentences[:10]))
+        assert len(sentences)==len(encode_sent)
+        return encode_sent
 
 
     def decode_one_piece(self,piece:str):
+        #TODO 消す
         """
         PiecegがvocにないならUNKにする。
         Arguments:
@@ -735,12 +719,12 @@ class UnigramModel:
         return s
 
 
-    def decode_sent(self,path:str)->list:
+    def decode(self,path:str)->list:
         """
         Arguments: decodeしたい文のpath
+
         """
-        #TODO encodeとinterfaceが違うのが気になること
-        #TODO 1 or 2. 1:encode_sent(path)? 2. decode_sent(),self.sent
+        #軽そうだし、parallelにしなくてもいいか。
         ret=[]
 
         with open(path,encoding="utf-8") as f:
@@ -748,14 +732,6 @@ class UnigramModel:
                 ret.append(self.decode_one_sent(s))
         return ret
 
-    def get_viterbi_path(self,sent)->list:
-        """
-        sentをviterbi pathに分割
-        """
-        L = Lattice()
-        L.set_sentence(sent)
-        L.populate_nodes(self.SentencePiece.get_pieces(),self.Trie)
-        return L.Viterbi(ret_piece=True)
 
 
 def process_each_estep(tup):
@@ -810,3 +786,24 @@ def process_each_prune(tup):
             freq[word] += score
             inverted[word] += score
     return (vsum,freq,inverted)
+
+def process_each_encode(tup):
+    """
+    tup: tuple(sentence_list, piece, trie)
+    
+    return: tokenized_sentence_list
+    """
+    (items,piece,trie)=tup
+
+
+    ret=[]
+    L = Lattice()
+    for sent in items:
+        if sent is None:
+            continue
+        L.set_sentence(sent)
+        L.populate_nodes(piece, trie)
+        tokenize_sent = " ".join(L.Viterbi(ret_piece=True))
+        ret.append(tokenize_sent)
+        assert "".join(tokenize_sent.split(" "))==sent
+    return ret

@@ -2,7 +2,7 @@ import sys
 #sys.path.append("../src/")
 from UnigramModel import UnigramModel
 
-def Encode(corpus_path,voc_file_path):
+def Encode(corpus_path,voc_file_path, n_threads=1):
     dummy_arg = {
         "file": corpus_path,
         "voc": None,
@@ -11,7 +11,9 @@ def Encode(corpus_path,voc_file_path):
         "desired_voc_size": None,
         "seed_sentence_piece_size":None,
         "use_original_make_seed":False,
+        "n_threads":n_threads,
     }
+
     U = UnigramModel(dummy_arg)
     U.load_sentence()
     U.read_sentencenpiece_from_voc_file(voc_file_path)

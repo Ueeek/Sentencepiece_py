@@ -1,7 +1,7 @@
 import sys
 from UnigramModel import UnigramModel
 
-def Decode(corpus_path,voc_path):
+def Decode(corpus_path,voc_path,n_threads=1):
     dummy_arg = {
         "file": corpus_path,
         "vocab_size":8000,
@@ -10,10 +10,12 @@ def Decode(corpus_path,voc_path):
         "desired_voc_size": None,
         "seed_sentence_piece_size":None,
         "use_original_make_seed":False,
+        "n_threads":n_threads,
     }
+
     U = UnigramModel(dummy_arg)
     U.load_voc_file(voc_path)
-    ret = U.decode_sent(corpus_path)
+    ret = U.decode(corpus_path)
     print("\n".join(ret))
 
 if __name__=="__main__":

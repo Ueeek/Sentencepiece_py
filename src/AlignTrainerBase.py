@@ -1,30 +1,36 @@
-# lattice とUnigramをimport するために必要
 import sys
-from math import log,exp
-from Lattice import Lattice
-from UnigramModel import UnigramModel
-from collections import defaultdict
-import pickle
-import random
 sys.path.append("./translate")
-from translate import IBMModel1
-from translate import IBMModel
-from translate import Alignment
-from translate import AlignedSent
-from Lattice import Lattice
-import time
-from itertools import zip_longest
 
+from UnigramModel import UnigramModel
+from Lattice import Lattice
+
+from collections import defaultdict
+from math import log,exp
+from itertools import zip_longest
 from multiprocessing import Pool
 
+import pickle
+import random
+import time
+
+from translate import IBMModel1, IBMModel, Alignment, AlignedSent
+
+
 class AlignTrainerBase:
+    """
+        prune stepにalignment lossを加える
+    """
+
     def __init__(self,arg_src, arg_tgt):
+        """
+            arg_src: UnigramModelのparam
+            arg_tgt: UnigramModelのparam
+        """
 
         self.U_src = UnigramModel(arg_src)
         self.U_tgt = UnigramModel(arg_tgt)
 
         self.n_threads=self.U_src.n_threads
-        assert self.U_src.n_threads==self.U_tgt.n_threads #別に違ってもいいけど
 
         self.src_tokenised=[]
         self.tgt_tokenised=[]
@@ -35,9 +41,9 @@ class AlignTrainerBase:
         print("load_sentence")
         self.src_sentences=self.U_src.load_sentence()
         self.tgt_sentences=self.U_tgt.load_sentence()
+
         # seed_piece
         print("make seed")
-
         seed_src = self.U_src.make_seed()
         seed_tgt = self.U_tgt.make_seed()
 
@@ -45,12 +51,11 @@ class AlignTrainerBase:
         self.U_tgt.set_sentence_piece(seed_tgt)
 
 
-    #@abstractmethod
-    def align_src_func(self,always_keep,alternatives,freq):
-        raise NotImplementedError
-    #@abstractmethod
-    def align_tgt_func(self,always_keep,alternatives,freq):
-        raise NotImplementedError
+    def align_src_func(self, always_keep, alternatives, freq):
+        return self.alignment_loss(always_keep, alternatives, freq,src_turn=True)
+
+    def align_tgt_func(self, always_keep, alternatives, freq):
+        return self.alignment_loss(always_keep, alternatives, freq,src_turn=False)
 
 
     def prune_step_with_align(self):
@@ -94,6 +99,11 @@ class AlignTrainerBase:
         return new_piece_s, new_piece_t
 
     def train(self,alpha=0.01,sample_rate=1.0, em_steps=5,back_up_interval=-1,back_up_file=None):
+        """
+        alpha: pruneScore = LMscore*(1-alpha)+ PruneScore*alpha
+        sample_rate: when train ibm1Model, smaple from whole corpus with this  rate
+        em_steps: em_steps of ibmModel
+        """
 
         self.alpha=alpha
         self.sample_rate=sample_rate
@@ -153,11 +163,6 @@ class AlignTrainerBase:
 
         print("get_bitexts src=>",src_turn)
 
-        #関数の外でやる
-        #start = time.time()
-        #self.tokenize_viterbi_pool(sample_rate=sample_rate,src_turn=src_turn)
-        #print("get bitexts Pool time>",time.time()-start)
-
         # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
         bitexts=[]
         if src_turn:
@@ -178,7 +183,6 @@ class AlignTrainerBase:
         AlignedWords = defaultdict(lambda: defaultdict(int))
         AlignedCnt = defaultdict(int)
 
-        #Poolできるよ。
         for bitext in bitexts:
             # align=(idx_in_tgt,idx_in_src)
             tgt, src, align = bitext.words, bitext.mots, bitext.alignment
@@ -186,7 +190,6 @@ class AlignTrainerBase:
                 if idx_src is None:
                     AlignedCnt["None"] += 1
                     continue  # したのalignedwordを使うところで、Noneは使わないから、countしなくてよさそう
-                #print("src:{}, tgt:{}".format(src[idx_src],tgt[idx_tgt]))
                 AlignedWords[src[idx_src]][tgt[idx_tgt]] += 1
                 AlignedCnt[src[idx_src]] += 1
 
@@ -220,7 +223,6 @@ class AlignTrainerBase:
                     p_t_s_alt = max(
                         ibm1.translation_table[t_key][s_key_alt] for s_key_alt in alternatives_s[s_key])
 
-                    p_alt = p_t_s_alt+p_t_s/len(alternatives_s[s_key])
                     logP_key = log(p_t_s)  # logP(t|x)
                     # P(t|x)がx_altにequally distributed
                     logP_alt = log(p_t_s_alt+p_t_s/len(alternatives_s[s_key]))
