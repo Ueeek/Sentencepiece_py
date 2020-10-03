@@ -6,7 +6,109 @@
 
 #IncludeRegexTransform: 
 
-..//third_party/absl/flags/flag.h
+/home/9/16B02273/sentencepiece/src/builtin_pb/sentencepiece_model.pb.h
+string
+-
+google/protobuf/stubs/common.h
+-
+google/protobuf/io/coded_stream.h
+-
+google/protobuf/arena.h
+-
+google/protobuf/arenastring.h
+-
+google/protobuf/generated_message_table_driven.h
+-
+google/protobuf/generated_message_util.h
+-
+google/protobuf/inlined_string_field.h
+-
+google/protobuf/metadata_lite.h
+-
+google/protobuf/message_lite.h
+-
+google/protobuf/repeated_field.h
+-
+google/protobuf/extension_set.h
+-
+google/protobuf/generated_enum_util.h
+-
+
+/home/9/16B02273/sentencepiece/src/common.h
+stdint.h
+-
+stdlib.h
+-
+string.h
+-
+iostream
+-
+memory
+-
+string
+-
+utility
+-
+vector
+-
+config.h
+/home/9/16B02273/sentencepiece/src/config.h
+third_party/absl/flags/flag.h
+/home/9/16B02273/sentencepiece/src/third_party/absl/flags/flag.h
+windows.h
+-
+
+/home/9/16B02273/sentencepiece/src/filesystem.h
+stdio.h
+-
+fstream
+-
+memory
+-
+string
+-
+common.h
+/home/9/16B02273/sentencepiece/src/common.h
+sentencepiece_processor.h
+/home/9/16B02273/sentencepiece/src/sentencepiece_processor.h
+third_party/absl/strings/string_view.h
+/home/9/16B02273/sentencepiece/src/third_party/absl/strings/string_view.h
+
+/home/9/16B02273/sentencepiece/src/init.h
+
+/home/9/16B02273/sentencepiece/src/sentencepiece_processor.h
+cstring
+-
+memory
+-
+string
+-
+utility
+-
+vector
+-
+third_party/absl/strings/string_view.h
+/home/9/16B02273/sentencepiece/src/third_party/absl/strings/string_view.h
+absl/strings/string_view.h
+/home/9/16B02273/sentencepiece/src/absl/strings/string_view.h
+
+/home/9/16B02273/sentencepiece/src/spm_export_vocab_main.cc
+sstream
+-
+common.h
+/home/9/16B02273/sentencepiece/src/common.h
+filesystem.h
+/home/9/16B02273/sentencepiece/src/filesystem.h
+init.h
+/home/9/16B02273/sentencepiece/src/init.h
+sentencepiece_model.pb.h
+/home/9/16B02273/sentencepiece/src/sentencepiece_model.pb.h
+sentencepiece_processor.h
+/home/9/16B02273/sentencepiece/src/sentencepiece_processor.h
+third_party/absl/flags/flag.h
+/home/9/16B02273/sentencepiece/src/third_party/absl/flags/flag.h
+
+/home/9/16B02273/sentencepiece/third_party/absl/flags/flag.h
 functional
 -
 memory
@@ -16,7 +118,7 @@ string
 vector
 -
 
-..//third_party/absl/strings/string_view.h
+/home/9/16B02273/sentencepiece/third_party/absl/strings/string_view.h
 algorithm
 -
 string_view
@@ -36,7 +138,7 @@ limits
 string
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/arena.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/arena.h
 limits
 -
 exception
@@ -52,7 +154,7 @@ google/protobuf/stubs/port.h
 type_traits
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/arena_impl.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/arena_impl.h
 atomic
 -
 limits
@@ -66,7 +168,7 @@ google/protobuf/stubs/port.h
 sanitizer/asan_interface.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/arenastring.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/arenastring.h
 string
 -
 google/protobuf/arena.h
@@ -80,7 +182,7 @@ google/protobuf/stubs/logging.h
 google/protobuf/stubs/port.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/extension_set.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/extension_set.h
 algorithm
 -
 cassert
@@ -102,11 +204,11 @@ google/protobuf/stubs/once.h
 google/protobuf/repeated_field.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/generated_enum_util.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/generated_enum_util.h
 type_traits
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/generated_message_table_driven.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/generated_message_table_driven.h
 google/protobuf/map.h
 -
 google/protobuf/map_entry_lite.h
@@ -120,7 +222,7 @@ google/protobuf/wire_format_lite.h
 google/protobuf/wire_format_lite_inl.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/generated_message_util.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/generated_message_util.h
 assert.h
 -
 atomic
@@ -148,13 +250,13 @@ google/protobuf/message_lite.h
 google/protobuf/wire_format_lite.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/has_bits.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/has_bits.h
 google/protobuf/stubs/common.h
 -
 google/protobuf/stubs/port.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/implicit_weak_message.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/implicit_weak_message.h
 google/protobuf/io/coded_stream.h
 -
 google/protobuf/arena.h
@@ -162,7 +264,7 @@ google/protobuf/arena.h
 google/protobuf/message_lite.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/inlined_string_field.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/inlined_string_field.h
 string
 -
 google/protobuf/stubs/port.h
@@ -170,7 +272,7 @@ google/protobuf/stubs/port.h
 google/protobuf/stubs/stringpiece.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/io/coded_stream.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/io/coded_stream.h
 assert.h
 -
 atomic
@@ -190,7 +292,7 @@ google/protobuf/stubs/port.h
 google/protobuf/stubs/port.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/map.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/map.h
 initializer_list
 -
 iterator
@@ -212,7 +314,7 @@ google/protobuf/map_type_handler.h
 google/protobuf/stubs/hash.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/map_entry_lite.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/map_entry_lite.h
 assert.h
 -
 google/protobuf/stubs/casts.h
@@ -230,7 +332,7 @@ google/protobuf/stubs/port.h
 google/protobuf/wire_format_lite_inl.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/map_field_lite.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/map_field_lite.h
 google/protobuf/map.h
 -
 google/protobuf/map_entry_lite.h
@@ -238,13 +340,13 @@ google/protobuf/map_entry_lite.h
 google/protobuf/wire_format_lite.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/map_type_handler.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/map_type_handler.h
 google/protobuf/arena.h
 -
 google/protobuf/wire_format_lite_inl.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/message_lite.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/message_lite.h
 climits
 -
 google/protobuf/stubs/common.h
@@ -258,7 +360,7 @@ google/protobuf/arena.h
 google/protobuf/stubs/port.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/metadata_lite.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/metadata_lite.h
 google/protobuf/stubs/common.h
 -
 google/protobuf/arena.h
@@ -268,7 +370,7 @@ google/protobuf/message_lite.h
 google/protobuf/stubs/port.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/repeated_field.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/repeated_field.h
 algorithm
 -
 iterator
@@ -294,19 +396,19 @@ google/protobuf/stubs/port.h
 type_traits
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/callback.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/callback.h
 type_traits
 -
 google/protobuf/stubs/macros.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/casts.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/casts.h
 type_traits
 -
 google/protobuf/stubs/common.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/common.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/common.h
 algorithm
 -
 iostream
@@ -340,7 +442,7 @@ TargetConditionals.h
 pthread.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/fastmem.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/fastmem.h
 stddef.h
 -
 stdio.h
@@ -350,7 +452,7 @@ string.h
 google/protobuf/stubs/common.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/hash.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/hash.h
 string.h
 -
 google/protobuf/stubs/common.h
@@ -392,23 +494,23 @@ map
 set
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/logging.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/logging.h
 google/protobuf/stubs/macros.h
 -
 google/protobuf/stubs/port.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/macros.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/macros.h
 google/protobuf/stubs/port.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/mutex.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/mutex.h
 mutex
 -
 google/protobuf/stubs/macros.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/once.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/once.h
 atomic
 -
 mutex
@@ -416,11 +518,11 @@ mutex
 utility
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/platform_macros.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/platform_macros.h
 TargetConditionals.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/port.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/port.h
 assert.h
 -
 stdlib.h
@@ -450,7 +552,7 @@ libkern/OSByteOrder.h
 byteswap.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/stubs/stringpiece.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/stubs/stringpiece.h
 assert.h
 -
 stddef.h
@@ -468,7 +570,7 @@ google/protobuf/stubs/common.h
 google/protobuf/stubs/hash.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/wire_format_lite.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/wire_format_lite.h
 string
 -
 google/protobuf/stubs/common.h
@@ -482,7 +584,7 @@ google/protobuf/stubs/port.h
 google/protobuf/repeated_field.h
 -
 
-../src/../third_party/protobuf-lite/google/protobuf/wire_format_lite_inl.h
+/home/9/16B02273/sentencepiece/third_party/protobuf-lite/google/protobuf/wire_format_lite_inl.h
 algorithm
 -
 string
@@ -501,108 +603,6 @@ google/protobuf/io/coded_stream.h
 -
 google/protobuf/arenastring.h
 -
-
-../src/builtin_pb/sentencepiece_model.pb.h
-string
--
-google/protobuf/stubs/common.h
--
-google/protobuf/io/coded_stream.h
--
-google/protobuf/arena.h
--
-google/protobuf/arenastring.h
--
-google/protobuf/generated_message_table_driven.h
--
-google/protobuf/generated_message_util.h
--
-google/protobuf/inlined_string_field.h
--
-google/protobuf/metadata_lite.h
--
-google/protobuf/message_lite.h
--
-google/protobuf/repeated_field.h
--
-google/protobuf/extension_set.h
--
-google/protobuf/generated_enum_util.h
--
-
-/home/ueki.k/.src/sentencepiece/src/common.h
-stdint.h
--
-stdlib.h
--
-string.h
--
-iostream
--
-memory
--
-string
--
-utility
--
-vector
--
-config.h
-/home/ueki.k/.src/sentencepiece/src/config.h
-third_party/absl/flags/flag.h
-/home/ueki.k/.src/sentencepiece/src/third_party/absl/flags/flag.h
-windows.h
--
-
-/home/ueki.k/.src/sentencepiece/src/filesystem.h
-stdio.h
--
-fstream
--
-memory
--
-string
--
-common.h
-/home/ueki.k/.src/sentencepiece/src/common.h
-sentencepiece_processor.h
-/home/ueki.k/.src/sentencepiece/src/sentencepiece_processor.h
-third_party/absl/strings/string_view.h
-/home/ueki.k/.src/sentencepiece/src/third_party/absl/strings/string_view.h
-
-/home/ueki.k/.src/sentencepiece/src/init.h
-
-/home/ueki.k/.src/sentencepiece/src/sentencepiece_processor.h
-cstring
--
-memory
--
-string
--
-utility
--
-vector
--
-third_party/absl/strings/string_view.h
-/home/ueki.k/.src/sentencepiece/src/third_party/absl/strings/string_view.h
-absl/strings/string_view.h
-/home/ueki.k/.src/sentencepiece/src/absl/strings/string_view.h
-
-/home/ueki.k/.src/sentencepiece/src/spm_export_vocab_main.cc
-sstream
--
-common.h
-/home/ueki.k/.src/sentencepiece/src/common.h
-filesystem.h
-/home/ueki.k/.src/sentencepiece/src/filesystem.h
-init.h
-/home/ueki.k/.src/sentencepiece/src/init.h
-sentencepiece_model.pb.h
-/home/ueki.k/.src/sentencepiece/src/sentencepiece_model.pb.h
-sentencepiece_processor.h
-/home/ueki.k/.src/sentencepiece/src/sentencepiece_processor.h
-third_party/absl/flags/flag.h
-/home/ueki.k/.src/sentencepiece/src/third_party/absl/flags/flag.h
 
 config.h
 

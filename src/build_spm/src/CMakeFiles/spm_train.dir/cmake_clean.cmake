@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/spm_train.dir/spm_train_main.cc.o"
-  "spm_train.pdb"
   "spm_train"
+  "spm_train.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

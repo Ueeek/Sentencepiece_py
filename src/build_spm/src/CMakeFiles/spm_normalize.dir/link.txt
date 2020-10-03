@@ -1,1 +1,1 @@
-/usr/bin/c++  -O3 -Wall -fPIC   -rdynamic CMakeFiles/spm_normalize.dir/spm_normalize_main.cc.o  -o spm_normalize -Wl,-rpath,/home/ueki.k/.src/sentencepiece/build/src: libsentencepiece_train.so.0.0.0 libsentencepiece.so.0.0.0 -lpthread -ltcmalloc_minimal 
+/usr/bin/c++  -O3 -Wall -fPIC   -rdynamic CMakeFiles/spm_normalize.dir/spm_normalize_main.cc.o  -o spm_normalize  -Wl,-rpath,/home/9/16B02273/Sentencepiece_py/src/build_spm/src: libsentencepiece_train.so.0.0.0 libsentencepiece.so.0.0.0 -lpthread 

@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/spm_normalize.dir/spm_normalize_main.cc.o"
-  "spm_normalize.pdb"
   "spm_normalize"
+  "spm_normalize.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

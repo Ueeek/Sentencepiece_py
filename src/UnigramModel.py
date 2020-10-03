@@ -227,7 +227,7 @@ class UnigramModel:
         引数のpathはdecodeとかencodeの時に使う
         """
 
-        print("load_ sentence")
+        #print("load_ sentence")
         if path is None:
             path = self.file
 
@@ -672,7 +672,7 @@ class UnigramModel:
             for s in ss:
                 encode_sent.append(s)
 
-        assert all("".join(a.aplit(" "))==b for a,b in zip(encode_sent[:10], sentences[:10]))
+        assert all("".join(a.split(" "))==b for a,b in zip(encode_sent[:10], sentences[:10]))
         assert len(sentences)==len(encode_sent)
         return encode_sent
 

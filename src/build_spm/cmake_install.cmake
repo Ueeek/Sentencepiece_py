@@ -1,4 +1,4 @@
-# Install script for directory: /home/ueki.k/.src/sentencepiece
+# Install script for directory: /home/9/16B02273/sentencepiece
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -29,7 +29,7 @@ endif()
 
 # Install shared libraries without execute permission?
 if(NOT DEFINED CMAKE_INSTALL_SO_NO_EXE)
-  set(CMAKE_INSTALL_SO_NO_EXE "1")
+  set(CMAKE_INSTALL_SO_NO_EXE "0")
 endif()
 
 # Is this installation the result of a crosscompile?
@@ -38,13 +38,13 @@ if(NOT DEFINED CMAKE_CROSSCOMPILING)
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" TYPE FILE FILES "/home/ueki.k/.src/sentencepiece/build/sentencepiece.pc")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig" TYPE FILE FILES "/home/9/16B02273/Sentencepiece_py/src/build_spm/sentencepiece.pc")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("/home/ueki.k/.src/sentencepiece/build/src/cmake_install.cmake")
-  include("/home/ueki.k/.src/sentencepiece/build/third_party/cmake_install.cmake")
+  include("/home/9/16B02273/Sentencepiece_py/src/build_spm/src/cmake_install.cmake")
+  include("/home/9/16B02273/Sentencepiece_py/src/build_spm/third_party/cmake_install.cmake")
 
 endif()
 
@@ -56,5 +56,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/ueki.k/.src/sentencepiece/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/9/16B02273/Sentencepiece_py/src/build_spm/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

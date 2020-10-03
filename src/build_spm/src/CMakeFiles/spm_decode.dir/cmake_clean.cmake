@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/spm_decode.dir/spm_decode_main.cc.o"
-  "spm_decode.pdb"
   "spm_decode"
+  "spm_decode.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

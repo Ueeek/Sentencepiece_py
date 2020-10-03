@@ -1,4 +1,6 @@
 file(REMOVE_RECURSE
+  "CMakeFiles/sentencepiece-static.dir/__/third_party/absl/flags/flag.cc.o"
+  "CMakeFiles/sentencepiece-static.dir/__/third_party/absl/strings/string_view.cc.o"
   "CMakeFiles/sentencepiece-static.dir/__/third_party/protobuf-lite/arena.cc.o"
   "CMakeFiles/sentencepiece-static.dir/__/third_party/protobuf-lite/arenastring.cc.o"
   "CMakeFiles/sentencepiece-static.dir/__/third_party/protobuf-lite/bytestream.cc.o"
@@ -22,9 +24,9 @@ file(REMOVE_RECURSE
   "CMakeFiles/sentencepiece-static.dir/__/third_party/protobuf-lite/wire_format_lite.cc.o"
   "CMakeFiles/sentencepiece-static.dir/__/third_party/protobuf-lite/zero_copy_stream.cc.o"
   "CMakeFiles/sentencepiece-static.dir/__/third_party/protobuf-lite/zero_copy_stream_impl_lite.cc.o"
+  "CMakeFiles/sentencepiece-static.dir/bpe_model.cc.o"
   "CMakeFiles/sentencepiece-static.dir/builtin_pb/sentencepiece.pb.cc.o"
   "CMakeFiles/sentencepiece-static.dir/builtin_pb/sentencepiece_model.pb.cc.o"
-  "CMakeFiles/sentencepiece-static.dir/bpe_model.cc.o"
   "CMakeFiles/sentencepiece-static.dir/char_model.cc.o"
   "CMakeFiles/sentencepiece-static.dir/error.cc.o"
   "CMakeFiles/sentencepiece-static.dir/filesystem.cc.o"
@@ -36,10 +38,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/sentencepiece-static.dir/unigram_model.cc.o"
   "CMakeFiles/sentencepiece-static.dir/util.cc.o"
   "CMakeFiles/sentencepiece-static.dir/word_model.cc.o"
-  "CMakeFiles/sentencepiece-static.dir/__/third_party/absl/strings/string_view.cc.o"
-  "CMakeFiles/sentencepiece-static.dir/__/third_party/absl/flags/flag.cc.o"
-  "libsentencepiece.pdb"
   "libsentencepiece.a"
+  "libsentencepiece.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

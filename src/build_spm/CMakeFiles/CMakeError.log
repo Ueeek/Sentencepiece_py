@@ -1,55 +1,65 @@
-Determining if the pthread_create exist failed with the following output:
-Change Dir: /home/ueki.k/.src/sentencepiece/build/CMakeFiles/CMakeTmp
+Performing C SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD failed with the following output:
+Change Dir: /home/9/16B02273/Sentencepiece_py/src/build_spm/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_893f8/fast"
-/usr/bin/make -f CMakeFiles/cmTC_893f8.dir/build.make CMakeFiles/cmTC_893f8.dir/build
-make[1]: Entering directory '/home/ueki.k/.src/sentencepiece/build/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_893f8.dir/CheckSymbolExists.c.o
-/usr/bin/cc    -o CMakeFiles/cmTC_893f8.dir/CheckSymbolExists.c.o   -c /home/ueki.k/.src/sentencepiece/build/CMakeFiles/CMakeTmp/CheckSymbolExists.c
-Linking C executable cmTC_893f8
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_893f8.dir/link.txt --verbose=1
-/usr/bin/cc      -rdynamic CMakeFiles/cmTC_893f8.dir/CheckSymbolExists.c.o  -o cmTC_893f8 
-CMakeFiles/cmTC_893f8.dir/CheckSymbolExists.c.o: In function `main':
-CheckSymbolExists.c:(.text+0x1b): undefined reference to `pthread_create'
+Run Build Command(s):/usr/bin/gmake cmTC_58395/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_58395.dir/build.make CMakeFiles/cmTC_58395.dir/build
+gmake[1]: Entering directory '/home/9/16B02273/Sentencepiece_py/src/build_spm/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_58395.dir/src.c.o
+/usr/bin/cc   -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_58395.dir/src.c.o   -c /home/9/16B02273/Sentencepiece_py/src/build_spm/CMakeFiles/CMakeTmp/src.c
+Linking C executable cmTC_58395
+/apps/t3/sles12sp2/gsic/cmake/3.17.2/bin/cmake -E cmake_link_script CMakeFiles/cmTC_58395.dir/link.txt --verbose=1
+/usr/bin/cc  -DCMAKE_HAVE_LIBC_PTHREAD    -rdynamic CMakeFiles/cmTC_58395.dir/src.c.o  -o cmTC_58395 
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld: CMakeFiles/cmTC_58395.dir/src.c.o: in function `main':
+src.c:(.text+0x2d): undefined reference to `pthread_create'
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld: src.c:(.text+0x39): undefined reference to `pthread_detach'
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld: src.c:(.text+0x45): undefined reference to `pthread_cancel'
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld: src.c:(.text+0x56): undefined reference to `pthread_join'
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld: src.c:(.text+0x6a): undefined reference to `pthread_atfork'
 collect2: error: ld returned 1 exit status
-CMakeFiles/cmTC_893f8.dir/build.make:97: recipe for target 'cmTC_893f8' failed
-make[1]: *** [cmTC_893f8] Error 1
-make[1]: Leaving directory '/home/ueki.k/.src/sentencepiece/build/CMakeFiles/CMakeTmp'
-Makefile:126: recipe for target 'cmTC_893f8/fast' failed
-make: *** [cmTC_893f8/fast] Error 2
+CMakeFiles/cmTC_58395.dir/build.make:106: recipe for target 'cmTC_58395' failed
+gmake[1]: *** [cmTC_58395] Error 1
+gmake[1]: Leaving directory '/home/9/16B02273/Sentencepiece_py/src/build_spm/CMakeFiles/CMakeTmp'
+Makefile:141: recipe for target 'cmTC_58395/fast' failed
+gmake: *** [cmTC_58395/fast] Error 2
 
-File /home/ueki.k/.src/sentencepiece/build/CMakeFiles/CMakeTmp/CheckSymbolExists.c:
-/* */
+
+Source file was:
 #include <pthread.h>
 
-int main(int argc, char** argv)
+void* test_func(void* data)
 {
-  (void)argv;
-#ifndef pthread_create
-  return ((int*)(&pthread_create))[argc];
-#else
-  (void)argc;
+  return data;
+}
+
+int main(void)
+{
+  pthread_t thread;
+  pthread_create(&thread, NULL, test_func, NULL);
+  pthread_detach(thread);
+  pthread_cancel(thread);
+  pthread_join(thread, NULL);
+  pthread_atfork(NULL, NULL, NULL);
+  pthread_exit(NULL);
+
   return 0;
-#endif
 }
 
 Determining if the function pthread_create exists in the pthreads failed with the following output:
-Change Dir: /home/ueki.k/.src/sentencepiece/build/CMakeFiles/CMakeTmp
+Change Dir: /home/9/16B02273/Sentencepiece_py/src/build_spm/CMakeFiles/CMakeTmp
 
-Run Build Command:"/usr/bin/make" "cmTC_2ca59/fast"
-/usr/bin/make -f CMakeFiles/cmTC_2ca59.dir/build.make CMakeFiles/cmTC_2ca59.dir/build
-make[1]: Entering directory '/home/ueki.k/.src/sentencepiece/build/CMakeFiles/CMakeTmp'
-Building C object CMakeFiles/cmTC_2ca59.dir/CheckFunctionExists.c.o
-/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=pthread_create   -o CMakeFiles/cmTC_2ca59.dir/CheckFunctionExists.c.o   -c /usr/share/cmake-3.10/Modules/CheckFunctionExists.c
-Linking C executable cmTC_2ca59
-/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_2ca59.dir/link.txt --verbose=1
-/usr/bin/cc  -DCHECK_FUNCTION_EXISTS=pthread_create    -rdynamic CMakeFiles/cmTC_2ca59.dir/CheckFunctionExists.c.o  -o cmTC_2ca59 -lpthreads 
-/usr/bin/ld: cannot find -lpthreads
+Run Build Command(s):/usr/bin/gmake cmTC_966d7/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_966d7.dir/build.make CMakeFiles/cmTC_966d7.dir/build
+gmake[1]: Entering directory '/home/9/16B02273/Sentencepiece_py/src/build_spm/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_966d7.dir/CheckFunctionExists.c.o
+/usr/bin/cc   -DCHECK_FUNCTION_EXISTS=pthread_create   -o CMakeFiles/cmTC_966d7.dir/CheckFunctionExists.c.o   -c /apps/t3/sles12sp2/gsic/cmake/3.17.2/share/cmake-3.17/Modules/CheckFunctionExists.c
+Linking C executable cmTC_966d7
+/apps/t3/sles12sp2/gsic/cmake/3.17.2/bin/cmake -E cmake_link_script CMakeFiles/cmTC_966d7.dir/link.txt --verbose=1
+/usr/bin/cc  -DCHECK_FUNCTION_EXISTS=pthread_create    -rdynamic CMakeFiles/cmTC_966d7.dir/CheckFunctionExists.c.o  -o cmTC_966d7  -lpthreads 
+/usr/lib64/gcc/x86_64-suse-linux/4.8/../../../../x86_64-suse-linux/bin/ld: -lpthreads が見つかりません
 collect2: error: ld returned 1 exit status
-CMakeFiles/cmTC_2ca59.dir/build.make:97: recipe for target 'cmTC_2ca59' failed
-make[1]: *** [cmTC_2ca59] Error 1
-make[1]: Leaving directory '/home/ueki.k/.src/sentencepiece/build/CMakeFiles/CMakeTmp'
-Makefile:126: recipe for target 'cmTC_2ca59/fast' failed
-make: *** [cmTC_2ca59/fast] Error 2
+CMakeFiles/cmTC_966d7.dir/build.make:106: recipe for target 'cmTC_966d7' failed
+gmake[1]: *** [cmTC_966d7] Error 1
+gmake[1]: Leaving directory '/home/9/16B02273/Sentencepiece_py/src/build_spm/CMakeFiles/CMakeTmp'
+Makefile:141: recipe for target 'cmTC_966d7/fast' failed
+gmake: *** [cmTC_966d7/fast] Error 2
+
 
 

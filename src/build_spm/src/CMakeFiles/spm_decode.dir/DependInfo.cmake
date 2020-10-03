@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/ueki.k/.src/sentencepiece/src/spm_decode_main.cc" "/home/ueki.k/.src/sentencepiece/build/src/CMakeFiles/spm_decode.dir/spm_decode_main.cc.o"
+  "/home/9/16B02273/sentencepiece/src/spm_decode_main.cc" "/home/9/16B02273/Sentencepiece_py/src/build_spm/src/CMakeFiles/spm_decode.dir/spm_decode_main.cc.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
@@ -15,16 +15,16 @@ set(CMAKE_TARGET_DEFINITIONS_CXX
 
 # The include file search paths:
 set(CMAKE_CXX_TARGET_INCLUDE_PATH
-  "../"
+  "/home/9/16B02273/sentencepiece"
   "."
-  "../src/../third_party/protobuf-lite"
-  "../src/builtin_pb"
+  "/home/9/16B02273/sentencepiece/src/../third_party/protobuf-lite"
+  "/home/9/16B02273/sentencepiece/src/builtin_pb"
   "src"
   )
 
 # Targets to which this target links.
 set(CMAKE_TARGET_LINKED_INFO_FILES
-  "/home/ueki.k/.src/sentencepiece/build/src/CMakeFiles/sentencepiece.dir/DependInfo.cmake"
+  "/home/9/16B02273/Sentencepiece_py/src/build_spm/src/CMakeFiles/sentencepiece.dir/DependInfo.cmake"
   )
 
 # Fortran module output directory.
