@@ -29,6 +29,7 @@ class UnigramModel:
         if "help" in argv.keys():
             self.print_arg_help()
         #from argv
+        self.use_all_vocab=arg_parser(argv,"use_all_vocab",default_val=False)
 
         self.n_threads= arg_parser(argv,"n_threads",default_val=1)
         self.dummy_vocab_size = arg_parser(argv,"dummy_vocab_size",default_val=30000)
@@ -42,7 +43,7 @@ class UnigramModel:
         self.seed_sentence_piece_size = arg_parser(argv,"seed_sentence_piece_size",default_val=1e5)
         self.use_original_make_seed = arg_parser(argv,"use_original_make_seed",default_val=False)
         self.unk_surface=arg_parser(argv,"unk_surface",default_val="⁇")
-        self.character_coverage = arg_parser(argv,"character_coverage",default_val=1)
+        self.character_coverage = arg_parser(argv,"character_coverage",default_val=0.9995)
         # original spの"_"の太文字みたいな文字
         self.sep_voc = arg_parser(argv,"sep_voc",default_val=chr(9601))
         self.debug = arg_parser(argv,"debug",default_val=False)
@@ -173,7 +174,8 @@ class UnigramModel:
         all_chars_count = sum(chars.values())
         for key,val in sorted(chars.items(),key=lambda x:-x[1]):
             coverage = accumulated_chars_count/all_chars_count
-            if coverage>=self.character_coverage:
+            if not self.use_all_vocab and coverage>=self.character_coverage:
+                print("char coverage:{} is covered".format(self.character_coverage))
                 break
             accumulated_chars_count+=val
             assert key!=chr(0x0020),"space must not be included"
@@ -184,8 +186,22 @@ class UnigramModel:
             print("Alphabet size=>",len(self.required_chars))
             print("Final character cpverage=>",accumulated_chars_count/all_chars_count)
                 
-        assert self.character_coverage==1,"unk 処理 is not implemented at load sentences #TODO"
+        #assert self.character_coverage==1,"unk 処理 is not implemented at load sentences #TODO"
         assert len(self.required_chars)<=self.vocab_size,"vocab_size is too small, should larger than required_chars_size:{}".format(len(self.required_chars))
+
+
+
+        #UNK 以外をrequired_charで置き換える
+        _words=defaultdict(int)
+        for word,val in self.words.items():
+            ret=""
+            for c in word:
+                if c in self.required_chars:
+                    ret+=c
+                else:
+                    ret+=self.unk_surface
+            _words[ret]=val
+        self.words=_words
 
 
         return sentences
