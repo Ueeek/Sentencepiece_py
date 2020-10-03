@@ -1,3 +1,4 @@
+src/build_spm
 src/__pycache__
 src/pysuffixarray
 test

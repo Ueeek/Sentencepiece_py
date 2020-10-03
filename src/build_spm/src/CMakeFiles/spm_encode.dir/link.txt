@@ -1,1 +1,0 @@
-/usr/bin/c++  -O3 -Wall -fPIC   -rdynamic CMakeFiles/spm_encode.dir/spm_encode_main.cc.o  -o spm_encode  -Wl,-rpath,/home/9/16B02273/Sentencepiece_py/src/build_spm/src: libsentencepiece.so.0.0.0 -lpthread 
