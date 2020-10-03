@@ -30,7 +30,6 @@ class UnigramModel:
             self.print_arg_help()
         #from argv
 
-        #self.n_threads=20
         self.n_threads= arg_parser(argv,"n_threads",default_val=1)
         self.dummy_vocab_size = arg_parser(argv,"dummy_vocab_size",default_val=30000)
 
@@ -122,105 +121,25 @@ class UnigramModel:
                 Voc[key]=float(val)
         return Voc
 
-    def make_seed_sentence_piece(self):
-        """ set init vocabulary of sentence piece
 
-        Return:
-            seed_sentencepieces(dict): dict[piece]=score
+    def build_trie(self):
+        """ building Trie from piece
         """
+        Trie = pygtrie.Trie()
+        for (key, score) in self.SentencePiece.get_pieces().items():
+            Trie[key] = (key, score)
+        self.Trie = Trie
 
-        all_chars = defaultdict(int)
-        array = []
-
-
-        for (word, freq) in self.words.items():
-            # ここでpretolenizeってのをかましている
-            for c in word:
-                assert c == UnicodeCharToUTF8(UTF8ToUnicodeText(c))
-                assert isValidCodepoint(c),"isValidCodepoint {}".format(c)
-                assert c!=0x0020,"space must not be included"
-                if c== self.kSentenceBoundary:
-                    print("Find null char")
-                    continue
-                array.append(c)
-                all_chars[c] += freq
-            array.append(self.kSentenceBoundary)
-
-        if not self.quiet:
-            print("alphabet=>", len(all_chars))
-
-        # make a suffix_array to extract all sub strings occuring more than 2 times in the sentence
-        # ここは、配列のサイズによって、分割した方が良さそうな気がする?sa-isでやっているはずで、線形アルゴリズムだから関係ない説もある
-        A = "".join(array)
-        if not self.quiet:
-            print("Making Suffix Array len:{}".format(len(array)))
-        SA = SuffixArray(A)
-
-        if not self.quiet:
-            print("Extracting frequent sub strings...")
-        # TODO 結構怪しい気がする ここの処理
-        substr = set()
-        for i, l in enumerate(SA.longest_common_prefix()):
-            if l <= 1:  # lcp=1なので1回しか出てこない
-                continue
-            sb = SA.string[SA.sa[i]:SA.sa[i]+l]  # 2回以上出てくるsbst
-            if sb[-1] == self.kSentenceBoundary:  # 最後の "0x00"は大目に見る
-                sb = sb[:-1]
-            if len(sb) <= 1:  # 多目に見た後に長さが2.elseはsb=charになっている
-                continue
-            if any(v == self.kSentenceBoundary for v in sb):  # 途中に 0x00が入っているのはinvalid
-                continue
-
-            if not isValidSentencePiece(sb):
-                continue
-
-            # それでも残ったやつは、2回以上出てくるsbst
-            freq = len(SA.match(sb))
-            assert freq >= 2
-            substr.add((sb, len(sb)*freq))
-
-        substr = sorted(list(substr), key=lambda x: -x[1])
-        seed_sentencepieces = all_chars
-        if len(seed_sentencepieces) > self.seed_sentence_piece_size:
-            pass
-        elif len(seed_sentencepieces)+len(substr) > self.seed_sentence_piece_size:
-            delete_size = len(seed_sentencepieces) + len(substr) -  self.seed_sentence_piece_size
-            if not self.quiet:
-                print(
-                    "del {} freq-sbst because of seed_sentence_piece_size".format(delete_size))
-            for sb, val in substr[:int(delete_size)]:
-                seed_sentencepieces[sb] = val
+    def make_seed(self)->dict:
+        """
+        self.use_original_make_seed=Trueならoriginal spm_trainで作る
+        else: myimpoleで作る(myimpleを使う意味はない
+        """
+        if self.use_original_make_seed:
+            seed_sentencepieces = self.load_seed_sentencepiece_from_file()
         else:
-            for sb, val in substr:
-                seed_sentencepieces[sb] = val
-
-        # TO LOG PROB
-        s = log(sum([v for v in seed_sentencepieces.values()]))
-        for i, v in seed_sentencepieces.items():
-            seed_sentencepieces[i] = log(v)-s
-
-        if not self.quiet:
-            print("Initialized {} seed sentence pieces".format(
-            len(seed_sentencepieces)))
+            assert "not ok"
         return seed_sentencepieces
-
-    def dump_to_pickle(self,name,data):
-        """
-        dump data into pickle
-        """
-        with open(self.debug_dir+"{:3}_".format(self.debug_cnt)+name+".pickle","wb") as f:
-                pickle.dump(data,f)
-
-
-    def set_sentence_piece(self, pieces,debug_name=None,info=None):
-        """ set piece into Sentencepiece class
-        Always call build_trie to create new Trie corresponding to new_pieces
-        Args:
-            pieces(dict): current sentencepieces dict[piece]=score
-        """
-
-        self.SentencePiece._set_sentence_piece(pieces)
-        self.build_trie()
 
     def load_sentence(self,path=None):
         """ load sentence from file
@@ -271,6 +190,16 @@ class UnigramModel:
 
         return sentences
 
+
+    def set_sentence_piece(self, pieces,debug_name=None,info=None):
+        """ set piece into Sentencepiece class
+        Always call build_trie to create new Trie corresponding to new_pieces
+        Args:
+            pieces(dict): current sentencepieces dict[piece]=score
+        """
+
+        self.SentencePiece._set_sentence_piece(pieces)
+        self.build_trie()
 
     def run_e_step_pool(self):
 
@@ -338,6 +267,23 @@ class UnigramModel:
 
         return new_pieces
 
+    def run_EM(self):
+        for itr in range(2):  # EM iteration loop
+
+            start = time.time()
+            expected, objective, num_tokens = self.run_e_step_pool()
+            print("Estep=>",time.time()-start)
+            #expected, objective, num_tokens = self.run_e_step()
+
+            new_sentencepieces = self.run_m_step(expected)
+
+            self.set_sentence_piece(new_sentencepieces)
+
+            piece_size = self.SentencePiece.get_piece_size()
+            print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(
+                itr, piece_size, objective, num_tokens, num_tokens/piece_size))
+
+
     def prune_step_1_always_keep_alternative(self):
         """
         Return
@@ -369,26 +315,6 @@ class UnigramModel:
         #print("alt=>",alternatives)
         return always_keep, alternatives
 
-    def process_each_prune(self,tup):
-        (s,score) = tup
-
-        current_piece = self.SentencePiece.get_pieces()
-
-        vsum = 0
-        freq = defaultdict(int)
-        inverted = defaultdict(int)
-
-        vsum += score
-        L = Lattice()
-        L.set_sentence(s)
-        L.populate_nodes(current_piece, self.Trie)
-
-        for word in L.Viterbi(ret_piece=True):
-            freq[word] += score
-            inverted[word] += score
-        return (vsum,freq,inverted)
-
-
     def prune_step_2_freq_inverted_pool(self):
         """
         Return
@@ -417,32 +343,6 @@ class UnigramModel:
                 inverted[key]+=val
 
         return vsum, freq, inverted
-    def prune_step_2_freq_inverted(self):
-        """
-        Return
-            vsum(float):
-            freq(dict):
-            inverted(dict):
-        """
-        current_piece = self.SentencePiece.get_pieces()
-        vsum = 0
-        freq = defaultdict(int)
-        # inverted[key] stires the set of sentence index where the sentencepiece (key) appears
-        inverted = defaultdict(int)
-
-        for s, score in self.words.items():
-            vsum += score
-            L = Lattice()
-            L.set_sentence(s)
-            L.populate_nodes(current_piece, self.Trie)
-
-            for word in L.Viterbi(ret_piece=True):
-                freq[word] += score
-                inverted[word] += score
-
-            # remove this
-        return vsum, freq, inverted
-
     def prune_step_3_new_piece_cand(self, always_keep, alternatives, vsum, freq, inverted):
         """
         Return
@@ -529,6 +429,9 @@ class UnigramModel:
         print("pruned {} pieces".format(self.SentencePiece.get_piece_size()-len(new_sentencepieces)))
         return new_sentencepieces
 
+    def check_finish(self):
+        return self.SentencePiece.get_piece_size() <= self.desired_voc_size
+
     def finalize_sentencepiece(self):
         """最終的な処理
         fileへの書き込みをする
@@ -568,46 +471,6 @@ class UnigramModel:
                 f.write("{}\t{}\n".format(key, val))
         print("finalized vocab size=>",len(piece))
         print("written voc to {}".format(self.out_voc_file))
-
-    def build_trie(self):
-        """ building Trie from piece
-        """
-        Trie = pygtrie.Trie()
-        for (key, score) in self.SentencePiece.get_pieces().items():
-            Trie[key] = (key, score)
-        self.Trie = Trie
-
-    def make_seed(self)->dict:
-        """
-        self.use_original_make_seed=Trueならoriginal spm_trainで作る
-        else: myimpoleで作る(myimpleを使う意味はない
-        """
-        if self.use_original_make_seed:
-            seed_sentencepieces = self.load_seed_sentencepiece_from_file()
-        else:
-            assert "not ok"
-            seed_sentencepieces = self.make_seed_sentence_piece()
-        return seed_sentencepieces
-
-    def check_finish(self):
-        return self.SentencePiece.get_piece_size() <= self.desired_voc_size
-
-    def run_EM(self):
-        for itr in range(2):  # EM iteration loop
-
-            start = time.time()
-            expected, objective, num_tokens = self.run_e_step_pool()
-            print("Estep=>",time.time()-start)
-            #expected, objective, num_tokens = self.run_e_step()
-
-            new_sentencepieces = self.run_m_step(expected)
-
-            self.set_sentence_piece(new_sentencepieces)
-
-            piece_size = self.SentencePiece.get_piece_size()
-            print("EM sub_iter= {} size={} obj={} num_tokens= {} num_tokens/piece= {}".format(
-                itr, piece_size, objective, num_tokens, num_tokens/piece_size))
-
 
     def train(self):
         """ training 
