@@ -134,10 +134,11 @@ class AlignTrainerBase:
             self.U_tgt.set_sentence_piece(new_piece_tgt)
 
             if self.back_up_interval>=1 and step_cnt%self.back_up_interval==0:
+                print("back up")
                 with open(back_up_file+"_{}.src.pickle".format(step_cnt),"wb") as f:
-                    pickle.dump(self.U_src,f)
+                    pickle.dump(self.U_src.SentencePiece.get_pieces(),f)
                 with open(back_up_file+"_{}.tgt.pickle".format(step_cnt),"wb") as f:
-                    pickle.dump(self.U_tgt,f)
+                    pickle.dump(self.U_tgt.SentencePiece.get_pieces(),f)
 
 
         print("{} step is needed to converge".format(step_cnt))

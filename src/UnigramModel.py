@@ -107,7 +107,9 @@ class UnigramModel:
                 #TODO optionはこれでいいのか?
                 #res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(self.vocab_size)])
                 #res = subprocess.run(["../../sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(self.seed_sentence_piece_size)])
-                res = subprocess.run(["../../../sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(self.dummy_vocab_size)])
+
+                #res = subprocess.run(["../../../sentencepiece/build/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(self.dummy_vocab_size)])
+                res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--vocab_size",str(self.dummy_vocab_size)])
                 #res = subprocess.run(["../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
                 #res = subprocess.run(["../../src/build_spm/src/spm_train","--input",self.file,"--model_prefix",f_name+".seed","--seed_sentencepiece_size",str(self.seed_sentence_piece_size),"--character_coverage","1","--normalization_rule_name","identity","split_by_number","false"])
             except:
@@ -263,7 +265,7 @@ class UnigramModel:
         for key, val in new_pieces.items():
             new_pieces[key] = Digamma(val)-logsum
 
-        print("m_step:sum(p(x))=>{}".format(sum([exp(v) for v in new_pieces.values()])))
+        #print("m_step:sum(p(x))=>{}".format(sum([exp(v) for v in new_pieces.values()])))
 
         return new_pieces
 
