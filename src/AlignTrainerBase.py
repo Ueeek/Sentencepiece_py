@@ -184,6 +184,7 @@ class AlignTrainerBase:
         AlignedWords = defaultdict(lambda: defaultdict(int))
         AlignedCnt = defaultdict(int)
 
+        #alignは、word->mot(tgt->src)
         for bitext in bitexts:
             # align=(idx_in_tgt,idx_in_src)
             tgt, src, align = bitext.words, bitext.mots, bitext.alignment
@@ -221,6 +222,7 @@ class AlignTrainerBase:
                 sum_val = sum(AlignedWords[s_key].values())
                 for t_key, val in AlignedWords[s_key].items():
                     p_t_s = ibm1.translation_table[t_key][s_key]
+                    #altのなかで、一番 alignの付け替えられそうなものに付け替える
                     p_t_s_alt = max(
                         ibm1.translation_table[t_key][s_key_alt] for s_key_alt in alternatives_s[s_key])
 

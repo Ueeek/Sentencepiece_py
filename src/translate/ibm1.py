@@ -137,14 +137,8 @@ class IBMModel1(IBMModel):
             self.translation_table = probability_tables["translation_table"]
 
 
-        self.n_threads=2
         for n in range(0, iterations):
-            #start = time.time()
             self.train(sentence_aligned_corpus)
-            #print("no para=>",time.time()-start)
-            #start = time.time()
-            #self.train_pool(sentence_aligned_corpus)
-            #print("pool=>",time.time()-start)
 
         self.align_all(sentence_aligned_corpus)
 
@@ -161,42 +155,13 @@ class IBMModel1(IBMModel):
         for t in self.trg_vocab:
             self.translation_table[t] = defaultdict(lambda: initial_prob)
 
-    def train_pool(self, parallel_corpus):
-        counts = Counts()
-        with Pool(processes=self.n_threads) as p:
-            ret=p.map(func=self.process_each, iterable=list(parallel_corpus))
-
-        for rec_counts in ret:
-            for t_key in rec_counts.t_given_s.keys():
-                for s_key in rec_counts.t_given_s[t_key].keys():
-                    counts.t_given_s[t_key][s_key]+=rec_counts[t_key][s_key]
-                    counts.any_t_given_s[s_key]+=rec_counts[t_key][s_key]
-
-        #aggregate counts
-        self.maximize_lexical_translation_probabilities(counts)
-
-    def process_each(self,aligned_sentence):
-        counts = Counts()
-        trg_sentence = aligned_sentence.words
-        src_sentence = [None] + aligned_sentence.mots
-
-        # E step (a): Compute normalization factors to weigh counts
-        total_count = self.prob_all_alignments(src_sentence, trg_sentence)
-
-        # E step (b): Collect counts
-        for t in trg_sentence:
-            for s in src_sentence:
-                count = self.prob_alignment_point(s, t)
-                normalized_count = count / total_count[t]
-                counts.t_given_s[t][s] += normalized_count
-                counts.any_t_given_s[s] += normalized_count
-        return counts
 
     def train(self, parallel_corpus):
         counts = Counts()
         for aligned_sentence in parallel_corpus:
             trg_sentence = aligned_sentence.words
-            src_sentence = [None] + aligned_sentence.mots
+            #src_sentence = [None] + aligned_sentence.mots
+            src_sentence =  aligned_sentence.mots
 
             # E step (a): Compute normalization factors to weigh counts
             total_count = self.prob_all_alignments(src_sentence, trg_sentence)
@@ -277,7 +242,8 @@ class IBMModel1(IBMModel):
 
         for j, trg_word in enumerate(sentence_pair.words):
             # Initialize trg_word to align with the NULL token
-            best_prob = max(self.translation_table[trg_word][None], IBMModel.MIN_PROB)
+            #best_prob = max(self.translation_table[trg_word][None], IBMModel.MIN_PROB)
+            best_prob=IBMModel.MIN_PROB
             best_alignment_point = None
             for i, src_word in enumerate(sentence_pair.mots):
                 align_prob = self.translation_table[trg_word][src_word]
@@ -285,6 +251,7 @@ class IBMModel1(IBMModel):
                     best_prob = align_prob
                     best_alignment_point = i
 
+            assert best_alignment_point is not None
             best_alignment.append((j, best_alignment_point))
 
         sentence_pair.alignment = Alignment(best_alignment)
