@@ -1,3 +1,4 @@
+src/build_spm
 src/__pycache__
 src/pysuffixarray
 test
@@ -21,3 +22,5 @@ toy_katakana
 toydata_large
 train_wmt_deen
 train_transliteration_jaen
+
+src/translate/__pycache__
