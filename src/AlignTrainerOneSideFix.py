@@ -145,7 +145,6 @@ class AlignTrainerOneSideFix:
         * sum(tt[t][src] for t in tt.keys())=1 tgtはNoneを含まないから
         """
 
-        print("get_bitexts src=>",src_turn)
 
         # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
         bitexts=[]
@@ -230,15 +229,16 @@ class AlignTrainerOneSideFix:
         with Pool(processes=self.n_threads) as p:
             src_viterbis=p.map(func=process_each,iterable=iterable)
 
-        tgt_viterbis=[s for i,s in enumerate(self.tgt_tokenised) if i in use_idx]
+        self.tgt_tokenised=[s for i,s in enumerate(self.tgt_tokenize_corpus) if i in use_idx]
 
 
-        assert len(self.src_tokenised)==len(self.tgt_tokenised)
+
         print("create bitexts")
-        for ret_src, ret_tgt in zip(src_viterbis,tgt_viterbis):
-            for src,tgt in zip(ret_src,ret_tgt):
+        for ret_src in src_viterbis:
+            for src in ret_src:
                 self.src_tokenised.append(src)
-                self.tgt_tokenised.append(tgt)
+
+        assert len(self.tgt_tokenised)==len(self.src_tokenised)
 
 
 
