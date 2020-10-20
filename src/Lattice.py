@@ -53,6 +53,7 @@ class Lattice:
         self.size = None
         self.begin_nodes_ = None
         self.end_nodes_ = None
+        self.unk_surface="⁇"
 
     def clear(self):
         self.begin_nodes_=None
@@ -348,7 +349,7 @@ class Lattice:
                     if piece_node.vocab_type=="vocab":
                         tmp.append(piece_node.piece)
                     elif piece_node.vocab_type=="unk":
-                        tmp.append(chr(9601))
+                        tmp.append(self.unk_surface)
                     else:
                         assert 1==2,piece_node.vocab_type
                 result_node_piece.append(tmp)

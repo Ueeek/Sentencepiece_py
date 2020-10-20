@@ -220,6 +220,7 @@ class AlignTrainerBase:
                     no_align_cnt += 1
 
                 sum_val = sum(AlignedWords[s_key].values())
+                print("key:{} alter{}".format(s_key,alternatives_s[s_key]))
                 for t_key, val in AlignedWords[s_key].items():
                     p_t_s = ibm1.translation_table[t_key][s_key]
                     #altのなかで、一番 alignの付け替えられそうなものに付け替える
@@ -233,6 +234,7 @@ class AlignTrainerBase:
                     loss += val/sum_val*(logP_key - logP_alt)
                 candidate_s[s_key] = loss
         print("end calc of align_loss")
+        exit()
         return candidate_s
 
     def tokenize_viterbi_pool(self):
