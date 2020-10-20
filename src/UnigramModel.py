@@ -10,7 +10,7 @@ from util import *
 from multiprocessing import Pool
 from itertools import zip_longest
 
-from pysuffixarray.core import SuffixArray
+#from pysuffixarray.core import SuffixArray
 import gc
 
 
