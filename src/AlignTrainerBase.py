@@ -164,6 +164,7 @@ class AlignTrainerBase:
 
         print("get_bitexts src=>",src_turn)
 
+
         # Train IBM Model1 with best tokenize sentence of source and target(bitext,iteration)
         bitexts=[]
         if src_turn:
@@ -185,6 +186,7 @@ class AlignTrainerBase:
         AlignedCnt = defaultdict(int)
 
         #alignは、word->mot(tgt->src)
+
         for bitext in bitexts:
             # align=(idx_in_tgt,idx_in_src)
             tgt, src, align = bitext.words, bitext.mots, bitext.alignment
@@ -207,7 +209,13 @@ class AlignTrainerBase:
             print("tgt")
             items=self.U_tgt.SentencePiece.get_pieces().items()
 
+        losses=[]
+        freq_ave=[]
+        zero_freq_alt=dict()
+
+        recall_s_key=[]
         for s_key, _ in items:
+            #best_alignmentに出てくる数
             if freq_s[s_key] == 0 or not always_keep_s[s_key]:
                 continue
             elif len(alternatives_s[s_key]) == 0:
@@ -220,8 +228,12 @@ class AlignTrainerBase:
                     no_align_cnt += 1
 
                 sum_val = sum(AlignedWords[s_key].values())
-                print("key:{} alter{}".format(s_key,alternatives_s[s_key]))
+                #print(AlignedWords[s_key])
+                #print("key:{} alter{}".format(s_key,alternatives_s[s_key]))
+                #print("tgt->src: {}".format(AlignedWords[s_key].items()))
+
                 for t_key, val in AlignedWords[s_key].items():
+                    assert val!=0
                     p_t_s = ibm1.translation_table[t_key][s_key]
                     #altのなかで、一番 alignの付け替えられそうなものに付け替える
                     p_t_s_alt = max(
@@ -231,10 +243,43 @@ class AlignTrainerBase:
                     # P(t|x)がx_altにequally distributed
                     logP_alt = log(p_t_s_alt+p_t_s/len(alternatives_s[s_key]))
 
+                    assert logP_key-logP_alt!=0
                     loss += val/sum_val*(logP_key - logP_alt)
+                    losses.append(loss)
                 candidate_s[s_key] = loss
-        print("end calc of align_loss")
-        exit()
+                freq_ave.append((freq_s[s_key],sum(freq_s[v] for v in alternatives_s[s_key])/len(alternatives_s[s_key])))
+                for v in alternatives_s[s_key]:
+                    if freq_s[v]==0:
+                        if v in zero_freq_alt:
+                            pass
+                        else:
+                            zero_freq_alt[v]=1
+                    else:
+                        zero_freq_alt[v]=0
+
+
+                recall_each=[]
+                for w in AlignedWords[s_key].keys():
+                    for x in alternatives_s[s_key]:
+                        if x in ibm1.translation_table[w].keys():
+                            recall_each.append(1)
+                            break
+                    else:
+                        recall_each.append(0)
+                if len(recall_each)>0:
+                    recall_s_key.append(sum(recall_each)/len(recall_each))
+
+
+        #print("recall=>",sum(recall_s_key)/len(recall_s_key))
+        #print("zero_freq_alt=>",sum(zero_freq_alt.values())/len(zero_freq_alt.keys()))
+        #print("ave Frep:{} alter:{}".format(sum(a for a,_ in freq_ave)/len(freq_ave),sum(b for _,b in freq_ave)/len(freq_ave)))
+
+
+        #print("alignet_cnt= no_alignt:{}/all:{}=use_rate:{}".format(no_align_cnt,all_align_cnt,(all_align_cnt-no_align_cnt)/all_align_cnt))
+        #print("loss_avg=>",sum(losses)/len(losses))
+        #print("loss_pos=>{}/all{}".format(len(list(filter(lambda x:x>0,losses))),len(losses)))
+        #print("end calc of align_loss")
+        #input()
         return candidate_s
 
     def tokenize_viterbi_pool(self):
