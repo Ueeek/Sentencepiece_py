@@ -239,6 +239,7 @@ class AlignTrainerOneSideFix:
                 self.src_tokenised.append(src)
 
         assert len(self.tgt_tokenised)==len(self.src_tokenised)
+        
 
 
 
